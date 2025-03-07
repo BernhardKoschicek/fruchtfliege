@@ -62,7 +62,6 @@ db.sqlite3
 db.sqlite3-journal
 
 # Flask stuff:
-instance/
 .webassets-cache
 
 # Scrapy stuff:
@@ -169,3 +168,4 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+/fruchtfliege/static/node_modules/
