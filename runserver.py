@@ -123,6 +123,7 @@ def species_map():
             options=[{"label": s, "value": s} for s in species_list],
             placeholder="Select a species",
             clearable=True
+
         ),
         dl.Map(
             id="species-map",
