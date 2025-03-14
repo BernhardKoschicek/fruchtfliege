@@ -102,6 +102,41 @@ def sample_pie_chart():
     ]
 
 
+def species_time_series():
+    return [
+        html.H3("Species Collection Trend Over Time"),
+        dcc.Dropdown(
+            id="species-dropdown",
+            options=[{"label": species, "value": species} for species in
+                     species_list],
+            placeholder="Select a species",
+            clearable=True
+        ),
+        dcc.Graph(id="species-time-series")]
+
+
+def species_map():
+    return [
+        html.H3("Species Collection Map"),
+        dcc.Dropdown(
+            id="species-map-dropdown",
+            options=[{"label": s, "value": s} for s in species_list],
+            placeholder="Select a species",
+            clearable=True
+        ),
+        dl.Map(
+            id="species-map",
+            children=[
+                dl.TileLayer(),
+                dl.LayerGroup(id="species-markers")
+            ],
+            center=[df["latitude"].mean(), df["longitude"].mean()],
+            zoom=10,
+            style={"height": "600px", "width": "600px"}
+        )
+    ]
+
+
 # Layout
 app.layout = html.Div(
     className="container",
@@ -111,6 +146,8 @@ app.layout = html.Div(
         html.Div(children=participant_map()),
         html.Div(children=sample_table()),
         html.Div(children=sample_pie_chart()),
+        html.Div(children=species_time_series()),
+        html.Div(children=species_map())
     ])
 
 
@@ -208,6 +245,75 @@ def update_pie_chart(selected_sample):
     else:
         pie_chart = go.Figure()  # Empty chart when no sample is selected
     return pie_chart
+
+
+@app.callback(
+    Output("species-time-series", "figure"),
+    Input("species-dropdown", "value")
+)
+def update_species_histogram(selected_species):
+    if not selected_species:
+        return go.Figure()  # Return empty figure if no species is selected
+
+    # Ensure collectionEnd is a date format
+    df["collectionEnd"] = pd.to_datetime(df["collectionEnd"], errors="coerce")
+
+    # Filter and group by collectionEnd date
+    species_counts = df.groupby("collectionEnd")[
+        selected_species].sum().reset_index()
+
+    # Convert date to string format (DD-MM-YYYY)
+    species_counts["collectionEnd"] = species_counts[
+        "collectionEnd"].dt.strftime("%d-%m-%Y")
+
+    # Create histogram
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=species_counts["collectionEnd"],
+        y=species_counts[selected_species],
+        marker=dict(color="blue"),
+        name=selected_species
+    ))
+
+    fig.update_layout(
+        title=f"Total {selected_species} Count Over Time",
+        xaxis_title="Collection End Date",
+        yaxis_title="Total Count",
+        xaxis=dict(type="category"),  # Keeps discrete date values
+        template="plotly_white",
+        bargap=0.2  # Adds spacing between bars
+    )
+
+    return fig
+
+
+@app.callback(
+    Output("species-markers", "children"),
+    Input("species-map-dropdown", "value")
+)
+def update_species_map(selected_species):
+    if not selected_species:
+        return []  # Return empty markers if no species is selected
+
+    # Filter data where the species count is greater than zero
+    filtered_df = df[df[selected_species] > 0]
+
+    markers = []
+    for _, row in filtered_df.iterrows():
+        markers.append(dl.CircleMarker(
+            center=[row["latitude"], row["longitude"]],
+            radius=8,  # Adjust size based on visibility needs
+            color="black",  # Border color
+            fillColor="blue",  # Marker color
+            fillOpacity=0.8,
+            children=dl.Tooltip(
+                f"Participant: {row['participants']} | "
+                f"Date: {row['collectionEnd']} | "
+                f"Count: {row[selected_species]}"
+            )
+        ))
+
+    return markers
 
 
 # Run the app
