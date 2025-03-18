@@ -22,7 +22,7 @@ species_list = ['melanogaster', 'simulans', 'suzukii', 'busckii', 'testacea',
                 'phalerata', 'subobscura', 'virilis']
 
 # Get unique participant names
-participants = df["participants"].dropna().unique()
+participants = sorted(df["participants"].dropna().unique())
 
 
 def get_color(value):
