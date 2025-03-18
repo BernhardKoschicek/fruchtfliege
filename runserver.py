@@ -167,8 +167,9 @@ def update_sample_dropdown(selected_participant):
 
 @app.callback([Output("markers", "children"),
                Output("map", "center"),
-               Output("map", "zoom")], Input("participant-dropdown", "value"))
-def update_map(selected_participant):
+               Output("map", "zoom")],
+               Input("participant-dropdown", "value"))
+def update_participant_map(selected_participant):
     markers = []
     zoom = 10  # Default zoom level when no participant is selected
     center = [df["latitude"].mean(),
@@ -179,25 +180,30 @@ def update_map(selected_participant):
         filtered_df = df[df["participants"] == selected_participant]
 
         # Get the first entry for the selected participant to zoom in on
-        # their location
         center = [filtered_df["latitude"].iloc[0],
                   filtered_df["longitude"].iloc[0]]
         zoom = 14
 
-    # Add markers for each row in the filtered dataframe
-    for _, row in df.iterrows():
-        base_color = get_color(row["total_flies"])
-        color = base_color  # Highlight selected participant
+        # Add markers for each row in the filtered dataframe
+        for _, row in df.iterrows():  # Iterate through all rows in the original df
+            # Highlight the selected participant differently
+            if row["participants"] == selected_participant:
+                base_color = get_color(row["total_flies"])  # Use your custom color function
+                color = base_color
+                opacity = 0.8  # Full opacity for selected participant
+            else:
+                color = "#BBBBBB"  # Gray color for others
+                opacity = 0.3  # Lower opacity for others
 
-        markers.append(dl.CircleMarker(
-            center=[row["latitude"], row["longitude"]],
-            radius=10,
-            color="black",  # Border color
-            fillColor=color,  # Fill color based on heatmap logic
-            fillOpacity=0.8,
-            children=dl.Tooltip(
-                f"{row['participants']} - {row['total_flies']} flies")
-        ))
+            markers.append(dl.CircleMarker(
+                center=[row["latitude"], row["longitude"]],
+                radius=10,
+                color="black",  # Border color
+                fillColor=color,  # Fill color
+                fillOpacity=opacity,  # Adjust opacity based on selection
+                children=dl.Tooltip(
+                    f"{row['participants']} - {row['total_flies']} flies")
+            ))
 
     return markers, center, zoom
 
