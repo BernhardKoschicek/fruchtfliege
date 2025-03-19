@@ -4,7 +4,8 @@ from dash import dash_table, dcc, html
 import dash_leaflet as dl
 from dash.dependencies import Input, Output
 import pandas as pd
-import plotly.graph_objects as go
+import dash_html_components as html
+
 
 # Load CSV
 df = pd.read_csv("flies.csv")
@@ -20,6 +21,31 @@ max_flies = df["total_flies"].max()
 species_list = ['melanogaster', 'simulans', 'suzukii', 'busckii', 'testacea',
                 'hydei', 'mercatorum', 'repleta', 'funebris', 'immigrans',
                 'phalerata', 'subobscura', 'virilis']
+
+def get_species_data():
+    # Alle Spalten mit Arten summieren pro participantid
+    df_sum = df.groupby("participants")[species_list].sum().reset_index()
+
+    # Gesamtzahl aller Fliegen pro participant berechnen
+    df_sum["total_flies"] = df_sum[species_list].sum(axis=1)
+
+    # Eine Zeile mit der Summe aller Fliegen über alle Teilnehmer hinzufügen
+    total_row = df_sum[species_list].sum().to_frame().T
+    total_row["participants"] = "TOTAL"
+    total_row["total_flies"] = total_row[species_list].sum(axis=1)
+
+    # Die Gesamtzeile an die Tabelle anhängen
+    df_final = pd.concat([df_sum, total_row], ignore_index=True)
+
+    # Rückgabe als Liste von Dictionaries (für Dash)
+    return df_final.to_dict("records")
+
+# Häufigkeit der Arten berechnen
+species_counts = {species: df[species].sum() for species in species_list}
+
+# Arten nach Häufigkeit sortieren
+sorted_species = sorted(species_counts.items(), key=lambda x: x[1], reverse=True)
+species_rank = {species: rank for rank, (species, _) in enumerate(sorted_species)}
 
 # Get unique participant names
 participants = sorted(df["participants"].dropna().unique())
@@ -44,6 +70,26 @@ def get_color(value):
     b = int(64 * (1 - ratio))  # Blue slightly decreases from 64 → 0
 
     return f"#{r:02X}{g:02X}{b:02X}"  # Convert to hex format
+
+#Funktion zur Farbkodierung
+def get_species_color(species):
+    rank = species_rank.get(species, len(species_list) - 1)
+    color_scale = [
+        "#880000",  # Dark Red (most frequent)
+        "#FF0000",  # Red
+        "#ec5252",  # Medium light red
+        "#FF7F00",  # Orange
+        "#ffa54d",  # Light orange
+        "#FFFF00",  # Yellow
+        "#cccc00",  # Dark yellow
+        "#4dff4d",  # Light green
+        "#00FF00",  # Green
+        "#00b300",  # Dark green
+        "#4d4dff",  # Light blue
+        "#0000FF",  # Blue
+        "#0000b3"  # Dark blue
+    ]
+    return color_scale[min(rank, len(color_scale) - 1)]
 
 
 # Initialize Dash app
@@ -143,7 +189,7 @@ app.layout = html.Div(
     className="container",
     children=[
         html.Div(
-            children=[html.H1("Fly Collection Heatmap")]),
+            children=[html.H1("Vienna City Fly 2025")]),
         html.Div(children=participant_map()),
         html.Div(children=sample_table()),
         html.Div(children=sample_pie_chart()),
@@ -237,20 +283,36 @@ def update_species_table(selected_participant):
     return table_data
 
 
+import plotly.graph_objects as go
+
+
 @app.callback(
     Output('species-pie-chart', 'figure'),
-    Input('sample-dropdown', 'value'))
+    Input('sample-dropdown', 'value')
+)
 def update_pie_chart(selected_sample):
     filtered_df = df
     if selected_sample:
+        # Filtere die Daten basierend auf der ausgewählten Sample ID
         sample_data = filtered_df[filtered_df['sampleId'] == selected_sample]
-        species_counts = {species: sample_data[species].sum() for species in
-                          species_list if sample_data[species].sum() > 0}
-        pie_chart = go.Figure(data=[go.Pie(labels=list(species_counts.keys()),
-                                           values=list(
-                                               species_counts.values()))])
+
+        # Zähle die Fliegen für jede Art
+        species_counts = {species: sample_data[species].sum() for species in species_list if
+                          sample_data[species].sum() > 0}
+
+        # Erstelle die Liste der Farben für das Pie-Chart
+        colors = [get_species_color(species) for species in species_counts.keys()]
+
+        # Erstelle das Pie-Chart mit den Farbkodierungen
+        pie_chart = go.Figure(data=[go.Pie(
+            labels=list(species_counts.keys()),
+            values=list(species_counts.values()),
+            marker=dict(colors=colors)  # Farben für die Segmente
+        )])
     else:
-        pie_chart = go.Figure()  # Empty chart when no sample is selected
+        # Leeres Diagramm, wenn keine Sample ID ausgewählt ist
+        pie_chart = go.Figure()
+
     return pie_chart
 
 
@@ -263,7 +325,8 @@ def update_species_histogram(selected_species):
         return go.Figure()  # Return empty figure if no species is selected
 
     # Ensure collectionEnd is a date format
-    df["collectionEnd"] = pd.to_datetime(df["collectionEnd"], errors="coerce")
+    df["collectionEnd"] = pd.to_datetime(df["collectionEnd"], dayfirst=True, errors="coerce")
+
 
     # Filter and group by collectionEnd date
     species_counts = df.groupby("collectionEnd")[
@@ -278,7 +341,7 @@ def update_species_histogram(selected_species):
     fig.add_trace(go.Bar(
         x=species_counts["collectionEnd"],
         y=species_counts[selected_species],
-        marker=dict(color="blue"),
+        marker=dict(color=get_species_color(selected_species)),
         name=selected_species
     ))
 
@@ -302,6 +365,9 @@ def update_species_map(selected_species):
     if not selected_species:
         return []  # Return empty markers if no species is selected
 
+    # Bestimme die Farbe basierend auf der definierten Farbkodierung
+    marker_color = get_species_color(selected_species)
+
     # Filter data where the species count is greater than zero
     filtered_df = df[df[selected_species] > 0]
 
@@ -311,7 +377,7 @@ def update_species_map(selected_species):
             center=[row["latitude"], row["longitude"]],
             radius=8,  # Adjust size based on visibility needs
             color="black",  # Border color
-            fillColor="blue",  # Marker color
+            fillColor=marker_color,  # Marker color based on species
             fillOpacity=0.8,
             children=dl.Tooltip(
                 f"Participant: {row['participants']} | "
@@ -323,6 +389,7 @@ def update_species_map(selected_species):
     return markers
 
 
+
 # Run the app
 if __name__ == "__main__":
-    app.run_server(debug=True, use_reloader=False)
+    app.run(debug=True, use_reloader=False)
