@@ -4,7 +4,8 @@ from dash import dash_table, dcc, html
 import dash_leaflet as dl
 from dash.dependencies import Input, Output
 import pandas as pd
-import dash_html_components as html
+import plotly.graph_objects as go
+
 
 
 # Load CSV
@@ -27,7 +28,7 @@ def get_species_data():
     df_sum = df.groupby("participants")[species_list].sum().reset_index()
 
     # Gesamtzahl aller Fliegen pro participant berechnen
-    df_sum["total_flies"] = df_sum[species_list].sum(axis=1)
+    df_sum["total_flies"] = df_sum.iloc[:, 1:].sum(axis=1)
 
     # Eine Zeile mit der Summe aller Fliegen über alle Teilnehmer hinzufügen
     total_row = df_sum[species_list].sum().to_frame().T
@@ -95,26 +96,17 @@ def get_species_color(species):
 # Initialize Dash app
 app = dash.Dash(__name__)
 
-
 def participant_map():
-    return [
-        # Dropdown for participant selection
-        dcc.Dropdown(
-            id="participant-dropdown",
-            options=[{"label": p, "value": p} for p in participants],
-            placeholder="Select a participant",
-            clearable=True),
-        dl.Map(
-            id="map",
-            children=[
-                dl.TileLayer(),
-                dl.LayerGroup(id="markers")],
-            center=[df["latitude"].mean(), df["longitude"].mean()],
-            # Default center
-            zoom=10,  # Default zoom level
-            style={"height": "600px", "width": "600px"})]
-
-
+    return dl.Map(
+        id="map",
+        children=[
+            dl.TileLayer(),
+            dl.LayerGroup(id="markers") # Stelle sicher, dass dies vorhanden ist
+        ],
+        center=[df["latitude"].mean(), df["longitude"].mean()],
+        zoom=10,
+        style={'height': '100%', 'width': '100%'}
+    )
 def sample_table():
     return [
         html.H3("Species Counts by Sample ID"),
@@ -144,8 +136,15 @@ def sample_pie_chart():
             placeholder="Select a sample ID",
             clearable=True
         ),
-        dcc.Graph(id='species-pie-chart')
+        html.Div(
+            style={'display': 'flex'},  # Flexbox-Container
+            children=[
+                dcc.Graph(id='sample-species-pie-chart', style={'flex': '1'}),  # Pie-Chart für Sample
+                dcc.Graph(id='participant-species-pie-chart', style={'flex': '1'})  # Pie-Chart für Participant
+            ]
+        )
     ]
+
 
 
 def species_time_series():
@@ -165,7 +164,7 @@ def species_map():
     return [
         html.H3("Species Collection Map"),
         dcc.Dropdown(
-            id="species-map-dropdown",
+            id="species-dropdown",
             options=[{"label": s, "value": s} for s in species_list],
             placeholder="Select a species",
             clearable=True
@@ -179,23 +178,73 @@ def species_map():
             ],
             center=[df["latitude"].mean(), df["longitude"].mean()],
             zoom=10,
-            style={"height": "600px", "width": "600px"}
+            style={"height": "600p", "width": "600p"}
         )
     ]
-
 
 # Layout
 app.layout = html.Div(
     className="container",
     children=[
+        html.Img(src="https://fairicube.wp2.nilu.no/wp-content/uploads/sites/21/2024/04/Logo-cityfly.png", style={'width': '200px'}),  # Füge das Bild hier hinzu
+        html.Div(children=[html.H1("Vienna City Fly 2025")]),
+
+        html.Div([
+            dcc.Dropdown(
+                id='participant-dropdown',
+                options=[{'label': p, 'value': p} for p in df['participants'].unique()],
+                value=df['participants'].unique()[0]  # Initialer Wert
+            )
+        ], style={'width': '100%', 'display': 'inline-block'}),  # Dropdown für Teilnehmer
+
         html.Div(
-            children=[html.H1("Vienna City Fly 2025")]),
-        html.Div(children=participant_map()),
-        html.Div(children=sample_table()),
-        html.Div(children=sample_pie_chart()),
-        html.Div(children=species_time_series()),
-        html.Div(children=species_map())
-    ])
+            id='map-container',
+            style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black', 'height': '600px', 'width': '600px'},
+            children=participant_map()  # Initialisiere die Karte hier
+        ),
+        html.Div(
+            children=sample_table(),
+            style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'}
+        ),
+        html.Div(
+            children=sample_pie_chart(),
+            style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'}
+        ),
+
+        html.Div([
+            dcc.Dropdown(
+                id='common-species-dropdown',
+                options=[{'label': s, 'value': s} for s in species_list],
+                value=species_list[0]  # Initialer Wert
+            ),
+            html.Div(
+                style={'display': 'flex'},  # Flexbox-Container
+                children=[
+                    html.Div(
+                        style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},  # Flex-Item
+                        children=[
+                            html.H3("Species Collection Trend Over Time"),
+                            dcc.Graph(id="species-time-series")
+                        ]
+                    ),
+                    html.Div(
+                        style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},  # Flex-Item
+                        children=[
+                            html.H3("Species Collection Map"),
+                            dl.Map(
+                                id="species-map",
+                                children=[dl.TileLayer(), dl.LayerGroup(id="species-markers")],
+                                center=[df["latitude"].mean(), df["longitude"].mean()],
+                                zoom=10,
+                                style={"height": "400px", "width": "400px"}
+                            )
+                        ]
+                    )
+                ]
+            )
+        ])
+    ]
+)
 
 
 @app.callback(
@@ -210,76 +259,116 @@ def update_sample_dropdown(selected_participant):
         return [{"label": s, "value": s} for s in sample_ids]
     return []  # Return empty if no participant is selected
 
-
-@app.callback([Output("markers", "children"),
-               Output("map", "center"),
-               Output("map", "zoom")],
-               Input("participant-dropdown", "value"))
-def update_participant_map(selected_participant):
-    markers = []
-    zoom = 10  # Default zoom level when no participant is selected
-    center = [df["latitude"].mean(),
-              df["longitude"].mean()]  # Default center when no selection
-
+@app.callback(
+    [Output('markers', 'children'),
+     Output('map-container', 'children')],
+    Input('participant-dropdown', 'value')
+)
+def update_map_components(selected_participant):
     if selected_participant:
-        # Filter data for the selected participant
-        filtered_df = df[df["participants"] == selected_participant]
+        filtered_df = df[df['participants'] == selected_participant].copy()
 
-        # Get the first entry for the selected participant to zoom in on
-        center = [filtered_df["latitude"].iloc[0],
-                  filtered_df["longitude"].iloc[0]]
-        zoom = 14
+        # Fehlende und ungültige Werte behandeln
+        filtered_df['latitude'] = pd.to_numeric(filtered_df['latitude'], errors='coerce').fillna(0)
+        filtered_df['longitude'] = pd.to_numeric(filtered_df['longitude'], errors='coerce').fillna(0)
 
-        # Add markers for each row in the filtered dataframe
-        for _, row in df.iterrows():  # Iterate through all rows in the original df
-            # Highlight the selected participant differently
-            if row["participants"] == selected_participant:
-                base_color = get_color(row["total_flies"])  # Use your custom color function
-                color = base_color
-                opacity = 0.8  # Full opacity for selected participant
-            else:
-                color = "#BBBBBB"  # Gray color for others
-                opacity = 0.3  # Lower opacity for others
+        markers = [dl.CircleMarker(
+            center=[row['latitude'], row['longitude']],
+            radius=10,
+            color="black",
+            fillColor=get_color(row['total_flies']),
+            fillOpacity=0.8,
+            children=dl.Tooltip(f"{row['participants']} - {row['total_flies']} flies")
+        ) for index, row in filtered_df.iterrows()]
 
-            markers.append(dl.CircleMarker(
-                center=[row["latitude"], row["longitude"]],
-                radius=10,
-                color="black",  # Border color
-                fillColor=color,  # Fill color
-                fillOpacity=opacity,  # Adjust opacity based on selection
-                children=dl.Tooltip(
-                    f"{row['participants']} - {row['total_flies']} flies")
-            ))
+        # Berechne den Mittelpunkt und Zoom basierend auf den gefilterten Daten
+        center = [filtered_df['latitude'].mean(), filtered_df['longitude'].mean()]
+        zoom = 14  # Du kannst den Zoom-Wert anpassen
 
-    return markers, center, zoom
+        map_component = dl.Map(
+            children=[
+                dl.TileLayer(),
+                dl.LayerGroup(id="markers", children=markers) # Hinzugefügt: LayerGroup mit id="markers"
+            ],
+            center=center,
+            zoom=zoom,
+            style={'width': '100%', 'height': '100%'}
+        )
+        return markers, map_component
+    else:
+        # Fehlende und ungültige Werte behandeln
+        df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce').fillna(0)
+        df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce').fillna(0)
 
+        markers = [dl.CircleMarker(
+            center=[row['latitude'], row['longitude']],
+            radius=10,
+            color="black",
+            fillColor=get_color(row['total_flies']),
+            fillOpacity=0.5,
+            children=dl.Tooltip(f"{row['participants']} - {row['total_flies']} flies")
+        ) for index, row in df.iterrows()]
+
+        # Berechne den Mittelpunkt und Zoom basierend auf allen Daten
+        center = [df['latitude'].mean(), df['longitude'].mean()]
+        zoom = 10  # Du kannst den Zoom-Wert anpassen
+
+        map_component = dl.Map(
+            children=[
+                dl.TileLayer(),
+                dl.LayerGroup(id="markers", children=markers) # Hinzugefügt: LayerGroup mit id="markers"
+            ],
+            center=center,
+            zoom=zoom,
+            style={'width': '100%', 'height': '100%'}
+        )
+        return markers, map_component
+def get_color(total_flies):
+    # Beispielhafte Farbzuordnung basierend auf der Anzahl der Fliegen
+    if total_flies < 10:
+        return "green"
+    elif 10 <= total_flies < 50:
+        return "orange"
+    else:
+        return "red"
+
+
+# Callback
 
 @app.callback(
     Output('species-table', 'data'),
-    Input('participant-dropdown', 'value'))
+    Input('participant-dropdown', 'value')
+)
 def update_species_table(selected_participant):
-    # Filter the dataframe by the selected participant (if any)
+    print("Callback wurde aufgerufen!")  # Überprüfen, ob der Callback ausgelöst wird
+
     filtered_df = df
     if selected_participant:
-        filtered_df = filtered_df[
-            filtered_df['participants'] == selected_participant]
+        filtered_df = filtered_df[filtered_df['participants'] == selected_participant].copy()
 
-    # Prepare the data for the table
+    filtered_df['sampleId'] = filtered_df['sampleId'].astype(str).str.strip()
+
     table_data = []
     sample_ids = filtered_df['sampleId'].unique()
 
     for sample_id in sample_ids:
+        sample_data = filtered_df[filtered_df['sampleId'] == sample_id].copy()
         row = {'sampleId': sample_id}
-
-        # Get the counts for each species in the species list
-        sample_data = filtered_df[filtered_df['sampleId'] == sample_id]
         for species in species_list:
-            species_count = sample_data[
-                species].sum()  # Sum the count of flies for each species
+            sample_data.loc[:, species] = pd.to_numeric(sample_data[species], errors='coerce').fillna(0)
+            species_count = sample_data[species].sum()
             row[species] = species_count
-
         table_data.append(row)
 
+    if selected_participant:
+        participant_sum = filtered_df[species_list].sum()
+        sum_row = {'sampleId': 'Participant Total'}
+        for species in species_list:
+            participant_sum = pd.to_numeric(participant_sum, errors = 'coerce').fillna(0)
+            sum_row[species] = participant_sum[species]
+        table_data.append(sum_row)
+
+    print(table_data)  # Überprüfen der Daten vor der Übergabe
     return table_data
 
 
@@ -287,38 +376,42 @@ import plotly.graph_objects as go
 
 
 @app.callback(
-    Output('species-pie-chart', 'figure'),
-    Input('sample-dropdown', 'value')
+    [Output('sample-species-pie-chart', 'figure'),
+     Output('participant-species-pie-chart', 'figure')],
+    Input('sample-dropdown', 'value'),
+    Input('participant-dropdown', 'value')
 )
-def update_pie_chart(selected_sample):
-    filtered_df = df
+def update_pie_chart(selected_sample, selected_participant):
+    # Pie-Chart für Sample
     if selected_sample:
-        # Filtere die Daten basierend auf der ausgewählten Sample ID
-        sample_data = filtered_df[filtered_df['sampleId'] == selected_sample]
-
-        # Zähle die Fliegen für jede Art
-        species_counts = {species: sample_data[species].sum() for species in species_list if
-                          sample_data[species].sum() > 0}
-
-        # Erstelle die Liste der Farben für das Pie-Chart
-        colors = [get_species_color(species) for species in species_counts.keys()]
-
-        # Erstelle das Pie-Chart mit den Farbkodierungen
-        pie_chart = go.Figure(data=[go.Pie(
-            labels=list(species_counts.keys()),
-            values=list(species_counts.values()),
-            marker=dict(colors=colors)  # Farben für die Segmente
+        sample_data = df[df['sampleId'] == selected_sample]
+        sample_species_counts = {species: sample_data[species].sum() for species in species_list if sample_data[species].sum() > 0}
+        sample_colors = [get_species_color(species) for species in sample_species_counts.keys()]
+        sample_pie_chart = go.Figure(data=[go.Pie(
+            labels=list(sample_species_counts.keys()),
+            values=list(sample_species_counts.values()),
+            marker=dict(colors=sample_colors)
         )])
     else:
-        # Leeres Diagramm, wenn keine Sample ID ausgewählt ist
-        pie_chart = go.Figure()
+        sample_pie_chart = go.Figure()
 
-    return pie_chart
+    # Pie-Chart für Participant
+    if selected_participant:
+        participant_data = df[df['participants'] == selected_participant]
+        participant_species_counts = {species: participant_data[species].sum() for species in species_list if participant_data[species].sum() > 0}
+        participant_colors = [get_species_color(species) for species in participant_species_counts.keys()]
+        participant_pie_chart = go.Figure(data=[go.Pie(
+            labels=list(participant_species_counts.keys()),
+            values=list(participant_species_counts.values()),
+            marker=dict(colors=participant_colors)
+        )])
+    else:
+        participant_pie_chart = go.Figure()
 
-
+    return sample_pie_chart, participant_pie_chart
 @app.callback(
     Output("species-time-series", "figure"),
-    Input("species-dropdown", "value")
+    Input("common-species-dropdown", "value")
 )
 def update_species_histogram(selected_species):
     if not selected_species:
@@ -359,7 +452,7 @@ def update_species_histogram(selected_species):
 
 @app.callback(
     Output("species-markers", "children"),
-    Input("species-map-dropdown", "value")
+    Input("common-species-dropdown", "value")
 )
 def update_species_map(selected_species):
     if not selected_species:
