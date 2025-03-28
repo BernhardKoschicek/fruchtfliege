@@ -1,5 +1,6 @@
 import dash
 import numpy as np
+import requests
 from dash import dash_table, dcc, html
 import dash_leaflet as dl
 from dash.dependencies import Input, Output
@@ -107,6 +108,7 @@ def participant_map():
         zoom=10,
         style={'height': '100%', 'width': '100%'}
     )
+
 def sample_table():
     return [
         html.H3("Species Counts by Sample ID"),
@@ -189,19 +191,30 @@ app.layout = html.Div(
         html.Img(src="https://fairicube.wp2.nilu.no/wp-content/uploads/sites/21/2024/04/Logo-cityfly.png", style={'width': '200px'}),  # Füge das Bild hier hinzu
         html.Div(children=[html.H1("Vienna City Fly 2025")]),
 
-        html.Div([
-            dcc.Dropdown(
-                id='participant-dropdown',
-                options=[{'label': p, 'value': p} for p in df['participants'].unique()],
-                value=df['participants'].unique()[0]  # Initialer Wert
-            )
-        ], style={'width': '100%', 'display': 'inline-block'}),  # Dropdown für Teilnehmer
-
         html.Div(
-            id='map-container',
-            style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black', 'height': '600px', 'width': '600px'},
-            children=participant_map()  # Initialisiere die Karte hier
+            style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black', 'height': '650px', 'width': '100%', 'padding': '10px', 'display': 'flex', 'flexDirection': 'column'},
+            children=[
+                dcc.Dropdown(
+                    id='participant-dropdown',
+                    options=[{'label': p, 'value': p} for p in sorted(df['participants'].unique())],
+                    value=df['participants'].unique()[0]  # Initialer Wert
+                ),
+                html.Div(
+                    id='map-container',
+                    style={'flex': '1', 'border': '1px solid black'},
+                    children=[
+                        dl.Map(
+                            id="map",
+                            children=[dl.TileLayer(), dl.LayerGroup(id="markers")],
+                            center=[df["latitude"].mean(), df["longitude"].mean()],
+                            zoom=10,
+                            style={"height": "100%", "width": "100%"}
+                        )
+                    ]
+                )
+            ]
         ),
+
         html.Div(
             children=sample_table(),
             style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'}
@@ -211,41 +224,66 @@ app.layout = html.Div(
             style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'}
         ),
 
-        html.Div([
-            dcc.Dropdown(
-                id='common-species-dropdown',
-                options=[{'label': s, 'value': s} for s in species_list],
-                value=species_list[0]  # Initialer Wert
+        html.Div(
+[
+    dcc.Dropdown(
+        id='common-species-dropdown',
+        options=[{'label': s, 'value': s} for s in species_list],
+        value=species_list[0]  # Initialwert
+    ),
+    html.Div(
+        style={'display': 'flex'},
+        children=[
+            html.Div(
+                style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},
+                children=[
+                    html.H3("Species Collection Trend Over Time"),
+                    dcc.Graph(id="species-time-series")
+                ]
             ),
             html.Div(
-                style={'display': 'flex'},  # Flexbox-Container
+                style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},
                 children=[
-                    html.Div(
-                        style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},  # Flex-Item
-                        children=[
-                            html.H3("Species Collection Trend Over Time"),
-                            dcc.Graph(id="species-time-series")
-                        ]
-                    ),
-                    html.Div(
-                        style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},  # Flex-Item
-                        children=[
-                            html.H3("Species Collection Map"),
-                            dl.Map(
-                                id="species-map",
-                                children=[dl.TileLayer(), dl.LayerGroup(id="species-markers")],
-                                center=[df["latitude"].mean(), df["longitude"].mean()],
-                                zoom=10,
-                                style={"height": "400px", "width": "400px"}
-                            )
-                        ]
+                    html.H3("Species Collection Map"),
+                    dl.Map(
+                        id="species-map",
+                        children=[dl.TileLayer(), dl.LayerGroup(id="species-markers")],
+                        center=[48.2082, 16.3738],  # Beispielkoordinaten
+                        zoom=10,
+                        style={"height": "100%", "width": "100%"}
                     )
                 ]
+            ),
+            html.Div(
+                id='species-info',
+                style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},
+                children=[html.H3("Species Info"), html.Div("Select a species to see details.")]
             )
-        ])
+        ]
+    )
+]
+        )
     ]
 )
+@app.callback(
+    Output('species-info', 'children'),
+    Input('common-species-dropdown', 'value')
+)
+def update_species_info(species):
+    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/drosophila_{species}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            return html.Div([
+                html.H3(data.get('title', 'No Title')),
+                html.Img(src=data.get('thumbnail', {}).get('source', ''), style={'max-width': '100%'}),
+                html.P(html.I(data.get('extract', 'No information available')))
+            ])
+    except Exception as e:
+        return html.Div(f"Error fetching data: {str(e)}")
 
+    return html.Div("No data available.")
 
 @app.callback(
     Output('sample-dropdown', 'options'),
@@ -261,68 +299,71 @@ def update_sample_dropdown(selected_participant):
 
 @app.callback(
     [Output('markers', 'children'),
-     Output('map-container', 'children')],
+     Output('map', 'center'),
+     Output('map', 'zoom')],
     Input('participant-dropdown', 'value')
 )
-def update_map_components(selected_participant):
+def update_map(selected_participant):
+    # Fehlende und ungültige Werte einmalig außerhalb der if-Abfragen behandeln
+    df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce').fillna(0)
+    df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce').fillna(0)
+
+    all_markers = [dl.CircleMarker(
+        center=[row['latitude'], row['longitude']],
+        radius=6,
+        color="black",
+        fillColor=get_color(row['total_flies']),
+        fillOpacity=0.5,
+        children=dl.Tooltip(f"{row['participants']} - {row['total_flies']} flies")
+    ) for index, row in df.iterrows()]
+
+    initial_center = [df['latitude'].mean(), df['longitude'].mean()]
+    initial_zoom = 8 # Diesen Wert ggf. anpassen
+
     if selected_participant:
         filtered_df = df[df['participants'] == selected_participant].copy()
 
-        # Fehlende und ungültige Werte behandeln
-        filtered_df['latitude'] = pd.to_numeric(filtered_df['latitude'], errors='coerce').fillna(0)
-        filtered_df['longitude'] = pd.to_numeric(filtered_df['longitude'], errors='coerce').fillna(0)
+        if not filtered_df.empty:
+            participant_lat = filtered_df['latitude'].mean()
+            participant_lon = filtered_df['longitude'].mean()
+            participant_center = [participant_lat, participant_lon]
 
-        markers = [dl.CircleMarker(
-            center=[row['latitude'], row['longitude']],
-            radius=10,
-            color="black",
-            fillColor=get_color(row['total_flies']),
-            fillOpacity=0.8,
-            children=dl.Tooltip(f"{row['participants']} - {row['total_flies']} flies")
-        ) for index, row in filtered_df.iterrows()]
+            # Berechnung des Zooms basierend auf den Koordinaten des ausgewählten Teilnehmers
+            # Hier ist eine einfachere Logik, die du verfeinern kannst
+            zoom_level = 14 # Starte mit einem relativ hohen Zoom
 
-        # Berechne den Mittelpunkt und Zoom basierend auf den gefilterten Daten
-        center = [filtered_df['latitude'].mean(), filtered_df['longitude'].mean()]
-        zoom = 14  # Du kannst den Zoom-Wert anpassen
+            # Optional: Berechne die Bounding Box der Daten des ausgewählten Teilnehmers
+            # und passe den Zoom so an, dass alle Punkte dieses Teilnehmers sichtbar sind.
+            # Das ist etwas komplexer und erfordert die Berechnung von Min/Max Lat/Lon.
 
-        map_component = dl.Map(
-            children=[
-                dl.TileLayer(),
-                dl.LayerGroup(id="markers", children=markers) # Hinzugefügt: LayerGroup mit id="markers"
-            ],
-            center=center,
-            zoom=zoom,
-            style={'width': '100%', 'height': '100%'}
-        )
-        return markers, map_component
+            return all_markers, participant_center, zoom_level
+        else:
+            return all_markers, initial_center, initial_zoom
     else:
-        # Fehlende und ungültige Werte behandeln
-        df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce').fillna(0)
-        df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce').fillna(0)
+        return all_markers, initial_center, initial_zoom
 
-        markers = [dl.CircleMarker(
-            center=[row['latitude'], row['longitude']],
-            radius=10,
-            color="black",
-            fillColor=get_color(row['total_flies']),
-            fillOpacity=0.5,
-            children=dl.Tooltip(f"{row['participants']} - {row['total_flies']} flies")
-        ) for index, row in df.iterrows()]
-
-        # Berechne den Mittelpunkt und Zoom basierend auf allen Daten
-        center = [df['latitude'].mean(), df['longitude'].mean()]
-        zoom = 10  # Du kannst den Zoom-Wert anpassen
-
-        map_component = dl.Map(
-            children=[
-                dl.TileLayer(),
-                dl.LayerGroup(id="markers", children=markers) # Hinzugefügt: LayerGroup mit id="markers"
-            ],
-            center=center,
-            zoom=zoom,
-            style={'width': '100%', 'height': '100%'}
-        )
-        return markers, map_component
+def get_color(total_flies):
+    if max_flies == min_flies:
+        return "#FFFF00"
+    log_min = np.log1p(min_flies)
+    log_max = np.log1p(max_flies)
+    log_value = np.log1p(total_flies)
+    ratio = (log_value - log_min) / (log_max - log_min)
+    r = int(128 + (127 * ratio))
+    g = int(255 * (1 - ratio))
+    b = int(64 * (1 - ratio))
+    return f"#{r:02X}{g:02X}{b:02X}"
+def get_color(total_flies):
+    if max_flies == min_flies:
+        return "#FFFF00"
+    log_min = np.log1p(min_flies)
+    log_max = np.log1p(max_flies)
+    log_value = np.log1p(total_flies)
+    ratio = (log_value - log_min) / (log_max - log_min)
+    r = int(128 + (127 * ratio))
+    g = int(255 * (1 - ratio))
+    b = int(64 * (1 - ratio))
+    return f"#{r:02X}{g:02X}{b:02X}"
 def get_color(total_flies):
     # Beispielhafte Farbzuordnung basierend auf der Anzahl der Fliegen
     if total_flies < 10:
@@ -331,7 +372,6 @@ def get_color(total_flies):
         return "orange"
     else:
         return "red"
-
 
 # Callback
 
