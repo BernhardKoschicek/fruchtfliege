@@ -6,8 +6,7 @@ import dash_leaflet as dl
 from dash.dependencies import Input, Output
 import pandas as pd
 import plotly.graph_objects as go
-
-
+from dash_extensions.enrich import ClientsideFunction
 
 # Load CSV
 df = pd.read_csv("flies.csv")
@@ -116,7 +115,8 @@ def sample_table():
             id='species-table',
             columns=[
                 {'name': 'Sample ID', 'id': 'sampleId'},
-                *[{'name': species, 'id': species} for species in species_list]
+                *[{'name': species, 'id': species} for species in species_list],
+                {'name': 'Total per Sample', 'id': 'Total per Sample'},
                 # Add species columns
             ],
             style_table={'height': '400px', 'overflowY': 'auto'},
@@ -166,19 +166,20 @@ def species_map():
     return [
         html.H3("Species Collection Map"),
         dcc.Dropdown(
-            id="species-dropdown",
+            id="common-species-dropdown",
             options=[{"label": s, "value": s} for s in species_list],
             placeholder="Select a species",
             clearable=True
-
         ),
         dl.Map(
-            id="species-map",
+            id="species-collection-map",
             children=[
                 dl.TileLayer(),
-                dl.LayerGroup(id="species-markers")
+                dl.FitBounds(
+                    children=dl.LayerGroup(id="species-markers")
+                )
             ],
-            center=[df["latitude"].mean(), df["longitude"].mean()],
+            center=[48.2082, 16.3738],  # Diese Standardeinstellungen werden überschrieben, wenn Bounds vorhanden sind
             zoom=10,
             style={"height": "600p", "width": "600p"}
         )
@@ -190,7 +191,6 @@ app.layout = html.Div(
     children=[
         html.Img(src="https://fairicube.wp2.nilu.no/wp-content/uploads/sites/21/2024/04/Logo-cityfly.png", style={'width': '200px'}),  # Füge das Bild hier hinzu
         html.Div(children=[html.H1("Vienna City Fly 2025")]),
-
         html.Div(
             style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black', 'height': '650px', 'width': '100%', 'padding': '10px', 'display': 'flex', 'flexDirection': 'column'},
             children=[
@@ -201,20 +201,48 @@ app.layout = html.Div(
                 ),
                 html.Div(
                     id='map-container',
-                    style={'flex': '1', 'border': '1px solid black'},
+                    style={'flex': '1', 'border': '1px solid black', 'position': 'relative'},
+                    # Wichtig: position: relative
                     children=[
                         dl.Map(
                             id="map",
                             children=[dl.TileLayer(), dl.LayerGroup(id="markers")],
                             center=[df["latitude"].mean(), df["longitude"].mean()],
-                            zoom=10,
+                            zoom=8,
                             style={"height": "100%", "width": "100%"}
-                        )
-                    ]
-                )
+                        ),
+                    ],
+                ),
+                html.Script("""
+                            const mapContainer = document.getElementById('map-container');
+                            const resizeObserver = new ResizeObserver(entries => {
+                                for (let entry of entries) {
+                                    if (entry.target === mapContainer) {
+                                        const size = { width: entry.contentRect.width, height: entry.contentRect.height };
+                                        // Hier könntest du das 'size'-Property des map-container-Divs direkt manipulieren,
+                                        // um den Clientside-Callback auszulösen (Workaround).
+                                        mapContainer.setAttribute('data-size', JSON.stringify(size));
+                                        // Oder du verwendest ein CustomEvent (sauberer):
+                                        mapContainer.dispatchEvent(new CustomEvent('containerResize', { detail: size }));
+                                    }
+                                }
+                            });
+                            resizeObserver.observe(mapContainer);
+
+                            // Clientside Callback, der auf das CustomEvent reagiert
+                            window.dash_clientside = window.dash_clientside || {};
+                            window.dash_clientside.clientside = {
+                                resize_map: function(dummy_id) {
+                                    const mapElement = document.getElementById('map');
+                                    if (mapElement && mapElement.__leaflet_map__) {
+                                        mapElement.__leaflet_map__.invalidateSize();
+                                    }
+                                    return window.dash_clientside.no_update;
+                                }
+                            };
+                        """)
             ]
         ),
-
         html.Div(
             children=sample_table(),
             style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'}
@@ -225,77 +253,60 @@ app.layout = html.Div(
         ),
 
         html.Div(
-[
-    dcc.Dropdown(
-        id='common-species-dropdown',
-        options=[{'label': s, 'value': s} for s in species_list],
-        value=species_list[0]  # Initialwert
-    ),
-    html.Div(
-        style={'display': 'flex'},
-        children=[
-            html.Div(
-                style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},
-                children=[
-                    html.H3("Species Collection Trend Over Time"),
-                    dcc.Graph(id="species-time-series")
-                ]
-            ),
-            html.Div(
-                style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},
-                children=[
-                    html.H3("Species Collection Map"),
-                    dl.Map(
-                        id="species-map",
-                        children=[dl.TileLayer(), dl.LayerGroup(id="species-markers")],
-                        center=[48.2082, 16.3738],  # Beispielkoordinaten
-                        zoom=10,
-                        style={"height": "100%", "width": "100%"}
-                    )
-                ]
-            ),
-            html.Div(
-                id='species-info',
-                style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},
-                children=[html.H3("Species Info"), html.Div("Select a species to see details.")]
-            )
-        ]
-    )
-]
+            [
+                dcc.Dropdown(
+                    id='common-species-dropdown',
+                    options=[{'label': s, 'value': s} for s in species_list],
+                    value=species_list[0]  # Initialwert
+                ),
+                html.Div(
+                    style={'display': 'flex'},
+                    children=[
+                        html.Div(
+                            style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},
+                            children=[
+                                html.H3("Species Collection Trend Over Time"),
+                                dcc.Graph(id="species-time-series")
+                            ]
+                        ),
+                        html.Div(
+                            id='species-info',
+                            style={'flex': '1', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black'},
+                            children=[html.H3("Species Info"), html.Div("Select a species to see details.")]
+                        )
+                    ]
+                ),
+                # Die Karte wird jetzt hier außerhalb des flex-Containers platziert
+                html.Div(
+                    style={'width': '100%', 'resize': 'both', 'overflow': 'auto', 'border': '1px solid black',
+                           'margin-top': '20px'},
+                    children=[
+                        html.H3("Species Collection Map"),
+                        dl.Map(
+                            id="species-collection-map",
+                            children=[dl.TileLayer(), dl.LayerGroup(id="species-markers")],
+                            center=[df["latitude"].mean(), df["longitude"].mean()],
+                            # Verwende den Durchschnitt aller Koordinaten als initialen Center
+                            zoom=8,
+                            style={"height": "600px", "width": "100%"}
+                        )
+                    ]
+                 )
+            ]
         )
-    ]
+   ]
 )
-@app.callback(
-    Output('species-info', 'children'),
-    Input('common-species-dropdown', 'value')
-)
-def update_species_info(species):
-    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/drosophila_{species}"
-    try:
-        response = requests.get(url)
-        if response.status_code == 200:
-            data = response.json()
-            return html.Div([
-                html.H3(data.get('title', 'No Title')),
-                html.Img(src=data.get('thumbnail', {}).get('source', ''), style={'max-width': '100%'}),
-                html.P(html.I(data.get('extract', 'No information available')))
-            ])
-    except Exception as e:
-        return html.Div(f"Error fetching data: {str(e)}")
 
-    return html.Div("No data available.")
 
-@app.callback(
-    Output('sample-dropdown', 'options'),
-    Input('participant-dropdown', 'value')
+
+app.clientside_callback(
+    ClientsideFunction(
+        namespace="clientside",
+        function_name="resize_map"
+    ),
+    Output("map", "dummy_output"), # Ein Dummy-Output
+    Input("map-container", "id") # Trigger bei Initialisierung
 )
-def update_sample_dropdown(selected_participant):
-    """Updates the sample dropdown based on selected participant"""
-    if selected_participant:
-        sample_ids = df[df["participants"] == selected_participant][
-            "sampleId"].unique()
-        return [{"label": s, "value": s} for s in sample_ids]
-    return []  # Return empty if no participant is selected
 
 @app.callback(
     [Output('markers', 'children'),
@@ -332,10 +343,6 @@ def update_map(selected_participant):
             # Hier ist eine einfachere Logik, die du verfeinern kannst
             zoom_level = 14 # Starte mit einem relativ hohen Zoom
 
-            # Optional: Berechne die Bounding Box der Daten des ausgewählten Teilnehmers
-            # und passe den Zoom so an, dass alle Punkte dieses Teilnehmers sichtbar sind.
-            # Das ist etwas komplexer und erfordert die Berechnung von Min/Max Lat/Lon.
-
             return all_markers, participant_center, zoom_level
         else:
             return all_markers, initial_center, initial_zoom
@@ -353,173 +360,155 @@ def get_color(total_flies):
     g = int(255 * (1 - ratio))
     b = int(64 * (1 - ratio))
     return f"#{r:02X}{g:02X}{b:02X}"
-def get_color(total_flies):
-    if max_flies == min_flies:
-        return "#FFFF00"
-    log_min = np.log1p(min_flies)
-    log_max = np.log1p(max_flies)
-    log_value = np.log1p(total_flies)
-    ratio = (log_value - log_min) / (log_max - log_min)
-    r = int(128 + (127 * ratio))
-    g = int(255 * (1 - ratio))
-    b = int(64 * (1 - ratio))
-    return f"#{r:02X}{g:02X}{b:02X}"
-def get_color(total_flies):
-    # Beispielhafte Farbzuordnung basierend auf der Anzahl der Fliegen
-    if total_flies < 10:
-        return "green"
-    elif 10 <= total_flies < 50:
-        return "orange"
-    else:
-        return "red"
 
-# Callback
+@app.callback(
+    Output('species-info', 'children'),
+    Input('common-species-dropdown', 'value')
+)
+def update_species_info(species):
+    url = f"https://en.wikipedia.org/api/rest_v1/page/summary/drosophila_{species}"
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            data = response.json()
+            return html.Div([
+                html.H3(data.get('title', 'No Title')),
+                html.Img(src=data.get('thumbnail', {}).get('source', ''), style={'max-width': '100%'}),
+                html.P(html.I(data.get('extract', 'No information available')))
+            ])
+    except Exception as e:
+        return html.Div(f"Error fetching data: {str(e)}")
+
+    return html.Div("No data available.")
+
+@app.callback(
+    Output('sample-dropdown', 'options'),
+    Input('participant-dropdown', 'value')
+)
+def update_sample_dropdown(selected_participant):
+    """Updates the sample dropdown based on selected participant"""
+    if selected_participant:
+        sample_ids = df[df["participants"] == selected_participant]["sampleId"].unique()
+        return [{"label": s, "value": s} for s in sample_ids]
+    return []  # Return empty if no participant is selected
 
 @app.callback(
     Output('species-table', 'data'),
     Input('participant-dropdown', 'value')
 )
 def update_species_table(selected_participant):
-    print("Callback wurde aufgerufen!")  # Überprüfen, ob der Callback ausgelöst wird
-
-    filtered_df = df
-    if selected_participant:
-        filtered_df = filtered_df[filtered_df['participants'] == selected_participant].copy()
-
-    filtered_df['sampleId'] = filtered_df['sampleId'].astype(str).str.strip()
-
-    table_data = []
-    sample_ids = filtered_df['sampleId'].unique()
-
-    for sample_id in sample_ids:
-        sample_data = filtered_df[filtered_df['sampleId'] == sample_id].copy()
-        row = {'sampleId': sample_id}
-        for species in species_list:
-            sample_data.loc[:, species] = pd.to_numeric(sample_data[species], errors='coerce').fillna(0)
-            species_count = sample_data[species].sum()
-            row[species] = species_count
-        table_data.append(row)
+    print("Callback für Tabelle aufgerufen!")
 
     if selected_participant:
-        participant_sum = filtered_df[species_list].sum()
-        sum_row = {'sampleId': 'Participant Total'}
-        for species in species_list:
-            participant_sum = pd.to_numeric(participant_sum, errors = 'coerce').fillna(0)
-            sum_row[species] = participant_sum[species]
-        table_data.append(sum_row)
+        filtered_df = df[df['participants'] == selected_participant].copy()
 
-    print(table_data)  # Überprüfen der Daten vor der Übergabe
-    return table_data
+        # Gruppiere nach Sample ID und summiere die Arten (für die einzelnen Sample-Zeilen)
+        species_by_sample = filtered_df.groupby('sampleId')[species_list].sum().reset_index()
+        species_by_sample['Total per Sample'] = species_by_sample[species_list].sum(axis=1)
 
+        # Berechne die Summe jeder Species über alle Samples des Participants
+        species_totals = filtered_df[species_list].sum().to_frame().T
+        species_totals['sampleId'] = 'Total per Participant' # Füge eine "Sample ID" für die Summenzeile hinzu
+        species_totals['Total per Sample'] = species_totals[species_list].sum(axis=1) # Berechne die Gesamtsumme für den Participant
+        print(f"Inhalt von species_totals nach Berechnung der Summe:\n{species_totals}")
 
-import plotly.graph_objects as go
-
+        # Kombiniere die Sample-Daten mit der Summenzeile
+        final_data = pd.concat([species_by_sample, species_totals], ignore_index=True)
+        print(f"Daten für die Tabelle (final_data.to_dict('records')):\n{final_data.to_dict('records')}")
+        return final_data.to_dict('records')
+    else:
+        return []
 
 @app.callback(
-    [Output('sample-species-pie-chart', 'figure'),
-     Output('participant-species-pie-chart', 'figure')],
-    Input('sample-dropdown', 'value'),
+    Output('participant-species-pie-chart', 'figure'),
     Input('participant-dropdown', 'value')
 )
-def update_pie_chart(selected_sample, selected_participant):
-    # Pie-Chart für Sample
-    if selected_sample:
-        sample_data = df[df['sampleId'] == selected_sample]
-        sample_species_counts = {species: sample_data[species].sum() for species in species_list if sample_data[species].sum() > 0}
-        sample_colors = [get_species_color(species) for species in sample_species_counts.keys()]
-        sample_pie_chart = go.Figure(data=[go.Pie(
-            labels=list(sample_species_counts.keys()),
-            values=list(sample_species_counts.values()),
-            marker=dict(colors=sample_colors)
-        )])
-    else:
-        sample_pie_chart = go.Figure()
-
-    # Pie-Chart für Participant
+def update_participant_pie_chart(selected_participant):
     if selected_participant:
-        participant_data = df[df['participants'] == selected_participant]
-        participant_species_counts = {species: participant_data[species].sum() for species in species_list if participant_data[species].sum() > 0}
-        participant_colors = [get_species_color(species) for species in participant_species_counts.keys()]
-        participant_pie_chart = go.Figure(data=[go.Pie(
-            labels=list(participant_species_counts.keys()),
-            values=list(participant_species_counts.values()),
-            marker=dict(colors=participant_colors)
-        )])
+        participant_data = df[df['participants'] == selected_participant][species_list].sum()
+        # Filtere Arten mit Werten größer als 0
+        filtered_data = participant_data[participant_data > 0]
+        labels = filtered_data.index
+        values = filtered_data.values
+        fig = go.Figure(data=[go.Pie(labels=labels, values=values)])
+        return fig
     else:
-        participant_pie_chart = go.Figure()
+        return go.Figure()
 
-    return sample_pie_chart, participant_pie_chart
+@app.callback(
+    Output('sample-species-pie-chart', 'figure'),
+    Input('sample-dropdown', 'value')
+)
+def update_sample_pie_chart(selected_sample):
+    if selected_sample:
+        sample_data = df[df['sampleId'] == selected_sample][species_list].sum()
+        # Filtere Arten mit Werten größer als 0
+        filtered_data = sample_data[sample_data > 0]
+        labels = filtered_data.index
+        values = filtered_data.values
+        fig = go.Figure(data=[go.Pie(labels=labels, values=values)])
+        return fig
+    else:
+        return go.Figure()
+
 @app.callback(
     Output("species-time-series", "figure"),
     Input("common-species-dropdown", "value")
 )
-def update_species_histogram(selected_species):
-    if not selected_species:
-        return go.Figure()  # Return empty figure if no species is selected
+def update_time_series(selected_species):
+    if selected_species:
+        # Stelle sicher, dass die collectionEnd-Spalte im DataFrame ein datetime-Objekt ist
+        df['collectionEnd'] = pd.to_datetime(df['collectionEnd'])
 
-    # Ensure collectionEnd is a date format
-    df["collectionEnd"] = pd.to_datetime(df["collectionEnd"], dayfirst=True, errors="coerce")
-
-
-    # Filter and group by collectionEnd date
-    species_counts = df.groupby("collectionEnd")[
-        selected_species].sum().reset_index()
-
-    # Convert date to string format (DD-MM-YYYY)
-    species_counts["collectionEnd"] = species_counts[
-        "collectionEnd"].dt.strftime("%d-%m-%Y")
-
-    # Create histogram
-    fig = go.Figure()
-    fig.add_trace(go.Bar(
-        x=species_counts["collectionEnd"],
-        y=species_counts[selected_species],
-        marker=dict(color=get_species_color(selected_species)),
-        name=selected_species
-    ))
-
-    fig.update_layout(
-        title=f"Total {selected_species} Count Over Time",
-        xaxis_title="Collection End Date",
-        yaxis_title="Total Count",
-        xaxis=dict(type="category"),  # Keeps discrete date values
-        template="plotly_white",
-        bargap=0.2  # Adds spacing between bars
-    )
-
-    return fig
-
+        filtered_df = df[df[selected_species] > 0].copy() # Nur Einträge mit Vorkommen der Spezies
+        if not filtered_df.empty:
+            # Verwende go.Bar für ein Säulendiagramm
+            fig = go.Figure(data=[go.Bar(x=filtered_df['collectionEnd'], y=filtered_df[selected_species])])
+            fig.update_layout(title=f"Collection Trend of {selected_species} Over Time",
+                              xaxis_title="Time",
+                              yaxis_title=f"Number of {selected_species}")
+            return fig
+        else:
+            return go.Figure(data=[go.Bar(x=[], y=[])], # Leere Balken
+                                 layout=go.Layout(title=f"No data found for {selected_species}"))
+    else:
+        return go.Figure() # Leerer Graph, wenn keine Spezies ausgewählt ist
 
 @app.callback(
-    Output("species-markers", "children"),
+    [Output("species-markers", "children"),
+     Output("species-collection-map", "bounds")],
     Input("common-species-dropdown", "value")
 )
 def update_species_map(selected_species):
-    if not selected_species:
-        return []  # Return empty markers if no species is selected
-
-    # Bestimme die Farbe basierend auf der definierten Farbkodierung
-    marker_color = get_species_color(selected_species)
-
-    # Filter data where the species count is greater than zero
-    filtered_df = df[df[selected_species] > 0]
-
-    markers = []
-    for _, row in filtered_df.iterrows():
-        markers.append(dl.CircleMarker(
-            center=[row["latitude"], row["longitude"]],
-            radius=8,  # Adjust size based on visibility needs
-            color="black",  # Border color
-            fillColor=marker_color,  # Marker color based on species
-            fillOpacity=0.8,
-            children=dl.Tooltip(
-                f"Participant: {row['participants']} | "
-                f"Date: {row['collectionEnd']} | "
-                f"Count: {row[selected_species]}"
-            )
-        ))
-
-    return markers
+    print(f"Ausgewählte Spezies: {selected_species}")
+    color = get_species_color(selected_species)
+    print(f"Farbe für {selected_species}: {color}")
+    if selected_species:
+        filtered_df = df[df[selected_species] > 0].copy() # Nur Einträge mit Vorkommen der Spezies
+        if not filtered_df.empty:
+            markers = [dl.CircleMarker(center=[row['latitude'], row['longitude']],
+                                       radius=8,
+                                       color=get_species_color(selected_species),
+                                       fillColor=get_species_color(selected_species),
+                                       fillOpacity=0.6,
+                                       children=dl.Tooltip(f"{selected_species}"))
+                       for index, row in filtered_df.iterrows()]
+            # Berechne die Bounds der Marker
+            lats = filtered_df['latitude'].tolist()
+            lons = filtered_df['longitude'].tolist()
+            if lats and lons:
+                min_lat = min(lats)
+                max_lat = max(lats)
+                min_lon = min(lons)
+                max_lon = max(lons)
+                bounds = [[min_lat, min_lon], [max_lat, max_lon]]
+                return markers, bounds
+            else:
+                return [], None # Keine Marker, keine Bounds
+        else:
+            return [], None # Keine Marker, keine Bounds
+    else:
+        return [], None # Keine Marker, keine Bounds
 
 
 
