@@ -3,7 +3,7 @@ import numpy as np
 import requests
 from dash import dash_table, dcc, html
 import dash_leaflet as dl
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 import pandas as pd
 import plotly.graph_objects as go
 from dash_extensions.enrich import ClientsideFunction
@@ -105,7 +105,14 @@ def participant_map():
         ],
         center=[df["latitude"].mean(), df["longitude"].mean()],
         zoom=10,
-        style={'height': '100%', 'width': '100%'}
+        style={
+            "width": "100%",
+            "height": "500px",  # Höhe anpassen, falls nötig
+            "margin": "0",
+            "padding": "0",
+            "box-sizing": "border-box",  # Stellt sicher, dass Padding/Margin nicht die Breite verändert
+            "overflow": "hidden"  # Verhindert Scrollbalken
+}
     )
 
 def sample_table():
@@ -192,7 +199,7 @@ app.layout = html.Div(
         html.Img(src="https://fairicube.wp2.nilu.no/wp-content/uploads/sites/21/2024/04/Logo-cityfly.png", style={'width': '200px'}),  # Füge das Bild hier hinzu
         html.Div(children=[html.H1("Vienna City Fly 2025")]),
         html.Div(
-            style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black', 'height': '650px', 'width': '100%', 'padding': '10px', 'display': 'flex', 'flexDirection': 'column'},
+            style={'resize': 'both', 'overflow': 'auto', 'border': '1px solid black', 'height': '650px', 'width': '100%', 'padding': '0', 'display': 'flex', 'flexDirection': 'column'},
             children=[
                 dcc.Dropdown(
                     id='participant-dropdown',
@@ -201,7 +208,15 @@ app.layout = html.Div(
                 ),
                 html.Div(
                     id='map-container',
-                    style={'flex': '1', 'border': '1px solid black', 'position': 'relative'},
+                    style={
+                        'flex': '1',
+                        'border': '0px solid black',
+                        'position': 'relative',
+                        'width': 'calc(100% - 2px)',  # Korrigiert die Breite um die Randlinie
+                        'height': 'calc(100% - 2px)',  # Falls die Höhe auch betroffen ist
+                        'padding': '0',  # Entfernt zusätzliches Padding
+                        'box-sizing': 'border-box' # Sorgt dafür, dass Border und Padding in die 100% einberechnet werden
+                    },
                     # Wichtig: position: relative
                     children=[
                         dl.Map(
@@ -209,7 +224,11 @@ app.layout = html.Div(
                             children=[dl.TileLayer(), dl.LayerGroup(id="markers")],
                             center=[df["latitude"].mean(), df["longitude"].mean()],
                             zoom=8,
-                            style={"height": "100%", "width": "100%"}
+                            style={
+                                "height": "100%",
+                                "width": "100%",
+                                "position": "absolute"
+                            }
                         ),
                     ],
                 ),
@@ -312,13 +331,14 @@ app.clientside_callback(
     [Output('markers', 'children'),
      Output('map', 'center'),
      Output('map', 'zoom')],
-    Input('participant-dropdown', 'value')
+    [Input('participant-dropdown', 'value')],
+    [State('map', 'zoom')]  # Speichere den aktuellen Zoom-Wert
 )
-def update_map(selected_participant):
-    # Fehlende und ungültige Werte einmalig außerhalb der if-Abfragen behandeln
+def update_map(selected_participant, current_zoom):
     df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce').fillna(0)
     df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce').fillna(0)
-
+    print("Spalten im DataFrame:", row.columns)
+    print("Daten in der Zeile:", row)
     all_markers = [dl.CircleMarker(
         center=[row['latitude'], row['longitude']],
         radius=6,
@@ -326,10 +346,9 @@ def update_map(selected_participant):
         fillColor=get_color(row['total_flies']),
         fillOpacity=0.5,
         children=dl.Tooltip(f"{row['participants']} - {row['total_flies']} flies")
-    ) for index, row in df.iterrows()]
+    ) for _, row in df.iterrows()]
 
     initial_center = [df['latitude'].mean(), df['longitude'].mean()]
-    initial_zoom = 8 # Diesen Wert ggf. anpassen
 
     if selected_participant:
         filtered_df = df[df['participants'] == selected_participant].copy()
@@ -339,15 +358,12 @@ def update_map(selected_participant):
             participant_lon = filtered_df['longitude'].mean()
             participant_center = [participant_lat, participant_lon]
 
-            # Berechnung des Zooms basierend auf den Koordinaten des ausgewählten Teilnehmers
-            # Hier ist eine einfachere Logik, die du verfeinern kannst
-            zoom_level = 14 # Starte mit einem relativ hohen Zoom
-
-            return all_markers, participant_center, zoom_level
+            # Nur zentrieren, aber aktuellen Zoom behalten
+            return all_markers, participant_center, current_zoom if current_zoom else 8
         else:
-            return all_markers, initial_center, initial_zoom
+            return all_markers, initial_center, current_zoom if current_zoom else 8
     else:
-        return all_markers, initial_center, initial_zoom
+        return all_markers, initial_center, current_zoom if current_zoom else 8
 
 def get_color(total_flies):
     if max_flies == min_flies:
