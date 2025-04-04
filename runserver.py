@@ -1,3 +1,4 @@
+import uuid
 from typing import Any
 
 import dash
@@ -137,7 +138,9 @@ def update_participant_pie_chart(selected_participant: str) -> Figure:
         filtered_data = participant_data[participant_data > 0]
         labels = filtered_data.index
         values = filtered_data.values
-        fig = go.Figure(data=[go.Pie(labels=labels, values=values)])
+        colors = [get_species_color(species) for species in labels]
+        fig = go.Figure(data=[
+            go.Pie(labels=labels, values=values, marker=dict(colors=colors))])
         return fig
     return go.Figure()
 
@@ -152,7 +155,9 @@ def update_sample_pie_chart(selected_sample: str) -> Figure:
         filtered_data = sample_data[sample_data > 0]
         labels = filtered_data.index
         values = filtered_data.values
-        fig = go.Figure(data=[go.Pie(labels=labels, values=values)])
+        colors = [get_species_color(species) for species in labels]
+        fig = go.Figure(data=[
+            go.Pie(labels=labels, values=values, marker=dict(colors=colors))])
         return fig
     return go.Figure()
 
@@ -192,20 +197,18 @@ def update_time_series(selected_species: str) -> Figure:
      Output("species-collection-map", "bounds")],
     Input("common-species-dropdown", "value"))
 def update_species_map(selected_species: str) -> tuple[list[Any], list[Any]]:
-    print(f"Ausgewählte Spezies: {selected_species}")
-    color = get_species_color(selected_species)
-    print(f"Farbe für {selected_species}: {color}")
     if selected_species:
         # Nur Einträge mit Vorkommen der Spezies
         filtered_df = df[df[selected_species] > 0].copy()
         if not filtered_df.empty:
             markers = []
             for _, row in filtered_df.iterrows():
+                unique_id = str(uuid.uuid4())
                 markers.append(dl.CircleMarker(
+                    id=unique_id,
                     center=[row['latitude'], row['longitude']],
                     radius=8,
                     color=get_species_color(selected_species),
-                    fillColor=get_species_color(selected_species),
                     fillOpacity=0.6,
                     children=dl.Tooltip(f"{selected_species}")))
 
