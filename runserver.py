@@ -170,18 +170,20 @@ def update_time_series(selected_species: str) -> Figure:
         filtered_df = df[df[selected_species] > 0].copy()
         if not filtered_df.empty:
             # Verwende go.Bar für ein Säulendiagramm
-            fig = go.Figure(data=[go.Bar(
-                x=filtered_df['collectionEnd'],
-                y=filtered_df[selected_species])])
+            fig = go.Figure(
+                data=[go.Bar(
+                    x=filtered_df['collectionEnd'],
+                    y=filtered_df[selected_species],
+                    marker_color=get_species_color(selected_species))])
             fig.update_layout(
                 title=f"Collection Trend of {selected_species} Over Time",
                 xaxis_title="Time",
                 yaxis_title=f"Number of {selected_species}")
             return fig
         return go.Figure(
-                data=[go.Bar(x=[], y=[])],  # Leere Balken
-                layout=go.Layout(title=f"No data found for {selected_species}")
-            )
+            data=[go.Bar(x=[], y=[])],  # Leere Balken
+            layout=go.Layout(title=f"No data found for {selected_species}")
+        )
     return go.Figure()  # Leerer Graph, wenn keine Spezies ausgewählt ist
 
 
@@ -198,7 +200,7 @@ def update_species_map(selected_species: str) -> tuple[list[Any], list[Any]]:
         filtered_df = df[df[selected_species] > 0].copy()
         if not filtered_df.empty:
             markers = []
-            for _ , row in filtered_df.iterrows():
+            for _, row in filtered_df.iterrows():
                 markers.append(dl.CircleMarker(
                     center=[row['latitude'], row['longitude']],
                     radius=8,
