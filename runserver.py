@@ -31,33 +31,51 @@ app.layout = layout()
 def update_map(
         selected_participant: str,
         current_zoom: int) -> tuple[list[CircleMarker], list[Any], int | Any]:
+    # Sicherstellen, dass Längen- und Breitengrade numerisch sind
     df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce').fillna(0)
     df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce').fillna(0)
+
+    # Marker für alle Teilnehmer
+    selected_marker = None
     all_markers = []
     for _, row in df.iterrows():
-        all_markers.append(dl.CircleMarker(
-            center=[row['latitude'], row['longitude']],
-            radius=6,
-            color="black",
-            fillColor=get_color(row['total_flies']),
-            fillOpacity=0.5,
-            children=dl.Tooltip(
-                f"{row['participants']} - {row['total_flies']} flies")))
-    initial_center = [df['latitude'].mean(), df['longitude'].mean()]
+        is_selected = selected_participant == row['participants']
+        marker_radius = 10 if is_selected else 6
+        fill_color = "black" if is_selected else get_color(row['total_flies'])
+
+        all_markers.append(
+            dl.CircleMarker(
+                center=[row['latitude'], row['longitude']],
+                radius=marker_radius,
+                color="black",  # Außenlinie bleibt schwarz
+                fillColor=fill_color,
+                fillOpacity=0.8 if is_selected else 0.5,
+                children=dl.Tooltip(
+                    f"{row['participants']} - {row['total_flies']} flies")
+            )
+        )
 
     if selected_participant:
         filtered_df = df[df['participants'] == selected_participant].copy()
-
         if not filtered_df.empty:
             participant_lat = filtered_df['latitude'].mean()
             participant_lon = filtered_df['longitude'].mean()
             participant_center = [participant_lat, participant_lon]
-
-            # Nur zentrieren, aber aktuellen Zoom behalten
-            return all_markers, participant_center, current_zoom or 8
-    return all_markers, initial_center, current_zoom or 8
+            return all_markers, participant_center, 13
 
 
+    # Kein Participant ausgewählt → auf alle Punkte zoomen
+    min_lat = df['latitude'].min()
+    max_lat = df['latitude'].max()
+    min_lon = df['longitude'].min()
+    max_lon = df['longitude'].max()
+
+    map_center = [(min_lat + max_lat) / 2, (min_lon + max_lon) / 2]
+
+    # Grober Zoom-Level, der die gesamte Streuung halbwegs abdeckt
+    auto_zoom = 8 if max_lat - min_lat < 1.5 and max_lon - min_lon < 1.5 else 6
+
+    return all_markers, map_center, auto_zoom
 @app.callback(
     Output('species-info', 'children'),
     Input('common-species-dropdown', 'value'))

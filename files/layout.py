@@ -32,7 +32,7 @@ def get_participant_map_div() -> Div:
                 options=[
                     {'label': p, 'value': p} for p in
                     sorted(df['participants'].unique())],
-                value=df['participants'].unique()[0]  # Initialer Wert
+                value=None  # Initialer Wert
             ),
             html.Div(
                 id='map-container',
@@ -57,7 +57,7 @@ def get_participant_map_div() -> Div:
                             dl.TileLayer(), dl.LayerGroup(id="markers")],
                         center=[
                             df["latitude"].mean(), df["longitude"].mean()],
-                        zoom=8,
+                        zoom=10,
                         style={
                             "height": "100%",
                             "width": "100%",
