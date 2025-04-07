@@ -1,0 +1,7 @@
+.panel-title {
+    padding: 15px; /* Beispiel für einen größeren Abstand */
+}
+
+.my-graph-title {
+    padding-bottom: 5px; /* Nur unteren Abstand hinzufügen */
+}

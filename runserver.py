@@ -113,12 +113,12 @@ def update_species_info(species: str) -> Div:
         if response.status_code == 200:
             data = response.json()
             return html.Div([
-                html.H3(data.get('title', 'No Title')),
+                html.H3(data.get('title', 'No Title'), style={'padding': '10px'}),
                 html.Img(
                     src=data.get('thumbnail', {}).get('source', ''),
-                    style={'max-width': '100%'}),
+                    style={'max-width': '100%', 'padding': '10px'}),
                 html.P(
-                    html.I(data.get('extract', 'No information available')))])
+                    html.I(data.get('extract', 'No information available'), style={'paddingLeft': '10px'}))])
     except Exception as e:
         return html.Div(f"Error fetching data: {str(e)}")
     return html.Div("No data available.")
@@ -209,6 +209,7 @@ def update_participant_pie_chart(selected_participant: str) -> Figure:
         showlegend = False
         fig = go.Figure(data=[
             go.Pie(labels=labels, values=values, marker=dict(colors=colors), showlegend = False)])
+        fig.update_layout(title=f"Artenverteilung Teilnehmer { selected_participant}")
         return fig
     return go.Figure()
 
@@ -226,6 +227,7 @@ def update_sample_pie_chart(selected_sample: str) -> Figure:
         colors = [get_species_color(species) for species in labels]
         fig = go.Figure(data=[
             go.Pie(labels=labels, values=values, marker=dict(colors=colors), showlegend = False)])
+        fig.update_layout(title=f"Artenverteilung Falle {selected_sample}")
         return fig
     return go.Figure()
 
@@ -249,7 +251,6 @@ def update_time_series(selected_species: str) -> Figure:
                     y=filtered_df[selected_species],
                     marker_color=get_species_color(selected_species))])
             fig.update_layout(
-                title=f"Collection Trend of {selected_species} Over Time",
                 xaxis_title="Time",
                 yaxis_title=f"Number of {selected_species}")
             return fig
@@ -276,9 +277,12 @@ def update_species_map(selected_species: str) -> tuple[list[Any], list[Any]]:
                     id=unique_id,
                     center=[row['latitude'], row['longitude']],
                     radius=8,
-                    color=get_species_color(selected_species),
+                    color='black',
+                    fillColor=get_species_color(selected_species),
                     fillOpacity=0.6,
                     children=dl.Tooltip(f"{selected_species}")))
+
+
 
             # Berechne die Bounds der Marker
             lats = filtered_df['latitude'].tolist()

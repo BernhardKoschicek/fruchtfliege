@@ -17,6 +17,8 @@ def get_logo() -> Img:
     return html.Img(src=logo, style={'width': '200px'})
 
 
+
+
 def get_participant_map_div() -> Div:
     return html.Div(
         style={
@@ -122,7 +124,7 @@ def get_species_details() -> Div:
                         'overflow': 'auto',
                         'border': '1px solid black'},
                     children=[
-                        html.H3("Species Collection Trend Over Time"),
+                        html.H3("Arten nach der Zeit", style={'padding': '10px'}),
                         dcc.Graph(id="species-time-series")
                     ]
                 ),
@@ -148,7 +150,7 @@ def get_species_details() -> Div:
                 'border': '1px solid black',
                 'margin-top': '20px'},
             children=[
-                html.H3("Species Collection Map"),
+                html.H3("Verbreitungskarte Arten", style={'padding': '10px'} ),
                 dl.Map(
                     id="species-collection-map",
                     children=[
@@ -196,7 +198,7 @@ def participant_map() -> MapContainer:
 def get_sample_table() -> Div:
     return html.Div(
         children=[
-            html.H3("Species Counts by Sample ID"),
+            html.H3("Artenverteilung nach Falle"),
             dash_table.DataTable(
                 id='species-table',
                 columns=[
@@ -220,8 +222,8 @@ def get_sample_table() -> Div:
                 dcc.RadioItems(
                     id='download-option',
                     options=[
-                        {'label': 'Gesamte Tabelle', 'value': 'all'},
-                        {'label': 'Nur gewählter Teilnehmer', 'value': 'selected'}
+                        {'label': 'Nur gewählter Teilnehmer', 'value': 'selected'},
+                        {'label': 'Gesamte Tabelle', 'value': 'all'}
                     ],
                     value='selected',
                     labelStyle={'display': 'block'}
@@ -261,7 +263,7 @@ def get_sample_pie_chart() -> html.Div:
         showlegend=True,
     )])
     fig.update_layout(
-        title="Total Species Distribution",
+        title="Artenverteilung VCF 2024",
         showlegend=True,
         legend=dict(x=1.05,  # Position der Legende rechts
             y=1,
@@ -269,12 +271,13 @@ def get_sample_pie_chart() -> html.Div:
             orientation='v',  # Vertikale Legende
             xanchor='left',
             yanchor='top'
-        )
+        ),
+        margin=dict(l=0, r=150, b=0, t=50)
     )
 
     return html.Div(
         children=[
-            html.H3('    Die Verteilung der Arten'),
+            html.H3('Die Verteilung der Arten', style={'padding': '10px'}),
             # Sample ID selection (populated dynamically)
             dcc.Dropdown(
                 id="sample-dropdown",
@@ -286,14 +289,14 @@ def get_sample_pie_chart() -> html.Div:
                 children=[
                     dcc.Graph(
                         id='sample-species-pie-chart',
-                        style={'flex': '1'}),  # Pie-Chart für Sample
+                        style={'flex': '1', 'height': '400px', 'width': '400px'}),  # Pie-Chart für Sample
                     dcc.Graph(
                         id='participant-species-pie-chart',
-                        style={'flex': '1'}),  # Pie-Chart für Participant
+                        style={'flex': '1', 'height': '400px', 'width': '400px'}),  # Pie-Chart für Participant
                     dcc.Graph(
                         id='vienna-pie-chart',  # Pie-Chart für Projekt
                         figure=fig,  # Direkt die Figure einfügen
-                        style={'flex': '1'}),
+                        style={'flex': '1', 'height': '400px', 'width': '400px'}),
                 ]
             )
         ],
