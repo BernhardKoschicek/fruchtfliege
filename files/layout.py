@@ -1,12 +1,14 @@
 from typing import Any
 
+import pandas as pd
 import dash_leaflet as dl
+import plotly.graph_objects as go
+
 from dash import dash_table, dcc, html
 from dash.html import Div, Img
 from dash_leaflet import MapContainer
-
 from files.data import df, species_list
-
+from files.util import get_color, get_species_color, make_popup
 
 def get_logo() -> Img:
     logo = (
@@ -199,37 +201,86 @@ def get_sample_table() -> Div:
                 id='species-table',
                 columns=[
                     {'name': 'Sample ID', 'id': 'sampleId'},
-                    *[{'name': species, 'id': species} for species in
-                      species_list],
+                    *[{'name': species, 'id': species} for species in species_list],
                     {'name': 'Total per Sample', 'id': 'Total per Sample'},
-                    # Add species columns
                 ],
                 style_table={'height': '400px', 'overflowY': 'auto'},
-                # Enable scrolling if needed
                 style_cell={
                     'textAlign': 'center',
                     'minWidth': '80px',
                     'width': '80px',
                     'maxWidth': '80px'},
                 style_header={
-                    'backgroundColor':
-                        'lightgray',
-                    'fontWeight': 'bold'}, )],
+                    'backgroundColor': 'lightgray',
+                    'fontWeight': 'bold'
+                },
+                data=df.to_dict('records')
+            ),
+            html.Div(style={'marginTop': '10px'}, children=[
+                dcc.RadioItems(
+                    id='download-option',
+                    options=[
+                        {'label': 'Gesamte Tabelle', 'value': 'all'},
+                        {'label': 'Nur gewählter Teilnehmer', 'value': 'selected'}
+                    ],
+                    value='selected',
+                    labelStyle={'display': 'block'}
+                ),
+                html.Button("Download Tabelle", id="download-button"),
+                dcc.Download(id="download-data")
+            ])
+        ],
         style={
             'resize': 'both',
             'overflow': 'auto',
-            'border': '1px solid black'})
+            'border': '1px solid black',
+            'padding': '10px'  # Padding für besseres Layout
+        }
+    )
 
 
-def get_sample_pie_chart() -> Div:
+
+
+def get_sample_pie_chart() -> html.Div:
+    # Berechnung der Gesamtanzahl der Fliegen pro Art (wenn nicht schon in der Datenvorbereitung erledigt)
+    species_counts = {species: df[species].sum() for species in species_list}
+
+    labels = list(species_counts.keys())  # Artennamen
+    values = list(species_counts.values())  # Häufigkeit der Arten
+
+    # Farbliste basierend auf den bereits definierten Farben (diese Farben wurden für die anderen Pie-Charts verwendet)
+    colors = [get_species_color(species) for species in labels]
+
+    # Pie-Chart erstellen
+    fig = go.Figure(data=[go.Pie(
+        labels=labels,
+        values=values,
+        marker=dict(colors=colors),  # Farben aus der bestehenden Farbliste
+        hoverinfo='label+percent',  # Beim Hover anzeigen
+        textinfo='value', # Beschriftung mit Wert
+        showlegend=True,
+    )])
+    fig.update_layout(
+        title="Total Species Distribution",
+        showlegend=True,
+        legend=dict(x=1.05,  # Position der Legende rechts
+            y=1,
+            traceorder='normal',
+            orientation='v',  # Vertikale Legende
+            xanchor='left',
+            yanchor='top'
+        )
+    )
+
     return html.Div(
         children=[
-            html.H3('Species Distribution'),
+            html.H3('    Die Verteilung der Arten'),
             # Sample ID selection (populated dynamically)
             dcc.Dropdown(
                 id="sample-dropdown",
                 placeholder="Select a sample ID",
-                clearable=True),
+                clearable=True
+            ),
             html.Div(
                 style={'display': 'flex'},  # Flexbox-Container
                 children=[
@@ -238,12 +289,19 @@ def get_sample_pie_chart() -> Div:
                         style={'flex': '1'}),  # Pie-Chart für Sample
                     dcc.Graph(
                         id='participant-species-pie-chart',
-                        style={'flex': '1'})])],  # Pie-Chart für Participant
-
+                        style={'flex': '1'}),  # Pie-Chart für Participant
+                    dcc.Graph(
+                        id='vienna-pie-chart',  # Pie-Chart für Projekt
+                        figure=fig,  # Direkt die Figure einfügen
+                        style={'flex': '1'}),
+                ]
+            )
+        ],
         style={
             'resize': 'both',
             'overflow': 'auto',
-            'border': '1px solid black'}
+            'border': '1px solid black'
+        }
     )
 
 

@@ -1,4 +1,5 @@
 import uuid
+import io
 from typing import Any
 
 import dash
@@ -6,10 +7,11 @@ import dash_leaflet as dl
 import pandas as pd
 import plotly.graph_objects as go
 import requests
-from dash import html
+from dash import html, dcc, State
 from dash.dependencies import Input, Output, State
 from dash.html import Div, Figure
 from dash_leaflet import CircleMarker
+from dash.exceptions import PreventUpdate
 
 
 from files.data import df, species_list
@@ -121,6 +123,29 @@ def update_species_info(species: str) -> Div:
         return html.Div(f"Error fetching data: {str(e)}")
     return html.Div("No data available.")
 
+# Callback für den Download
+
+
+@app.callback(
+    Output("download-data", "data"),
+    Input("download-button", "n_clicks"),
+    State("download-option", "value"),
+    State("participant-dropdown", "value"),  # Annahme: dieser Wert ist per dcc.Store o. Ä. gespeichert
+    prevent_initial_call=True
+)
+def download_table(n_clicks, download_option, selected_participant):
+    if download_option == 'selected':
+        df_to_download = df[df['participants'] == selected_participant]
+        filename = f"{selected_participant}-species_data.csv"
+    else:
+        columns_to_exclude = ['latitude', 'longitude', 'bait']
+        columns_to_include = [col for col in df.columns if col not in columns_to_exclude]
+        df_to_download = df[columns_to_include]
+        filename = "all_species_data.csv"
+
+    # Gebe den DataFrame als CSV-String zum Download zurück
+    return dcc.send_data_frame(df_to_download.to_csv, filename, index=False)
+
 
 @app.callback(
     Output('sample-dropdown', 'options'),
@@ -181,8 +206,9 @@ def update_participant_pie_chart(selected_participant: str) -> Figure:
         labels = filtered_data.index
         values = filtered_data.values
         colors = [get_species_color(species) for species in labels]
+        showlegend = False
         fig = go.Figure(data=[
-            go.Pie(labels=labels, values=values, marker=dict(colors=colors))])
+            go.Pie(labels=labels, values=values, marker=dict(colors=colors), showlegend = False)])
         return fig
     return go.Figure()
 
@@ -199,7 +225,7 @@ def update_sample_pie_chart(selected_sample: str) -> Figure:
         values = filtered_data.values
         colors = [get_species_color(species) for species in labels]
         fig = go.Figure(data=[
-            go.Pie(labels=labels, values=values, marker=dict(colors=colors))])
+            go.Pie(labels=labels, values=values, marker=dict(colors=colors), showlegend = False)])
         return fig
     return go.Figure()
 

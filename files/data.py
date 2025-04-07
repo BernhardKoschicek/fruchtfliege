@@ -1,7 +1,7 @@
 # Load CSV
 import pandas as pd
 
-df = pd.read_csv("flies.csv")
+df = pd.read_csv("flies.csv").fillna(0)
 
 # Ensure total_flies column is numeric
 df["total_flies"] = pd.to_numeric(df["total_flies"], errors="coerce").fillna(0)
@@ -25,7 +25,7 @@ species_list = [
                 'phalerata',
     'subobscura',
     'virilis']
-
+df[species_list] = df[species_list].astype(int)
 # Häufigkeit der Arten berechnen
 species_counts = {species: df[species].sum() for species in species_list}
 
@@ -55,3 +55,5 @@ species_rank = {
 #
 #     # Rückgabe als Liste von Dictionaries (für Dash)
 #     return df_final.to_dict("records")
+
+
