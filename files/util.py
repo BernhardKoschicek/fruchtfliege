@@ -1,6 +1,11 @@
 import numpy as np
+import dash_leaflet as dl
+from dash import html, dcc
+import dash_leaflet as dl
+import dash_html_components as html
+import pandas as pd
 
-from files.data import max_flies, min_flies, species_list, species_rank
+from files.data import df, max_flies, min_flies, species_list, species_rank
 
 
 def get_color(value: str) -> str:
@@ -22,6 +27,44 @@ def get_color(value: str) -> str:
     b = int(64 * (1 - ratio))  # Blue slightly decreases from 64 → 0
 
     return f"#{r:02X}{g:02X}{b:02X}"  # Convert to hex format
+
+
+
+
+
+def make_popup(participant: str, species_totals: pd.DataFrame) -> dl.Popup:
+    # Extrahiere die Summe für den Teilnehmer
+    total_flies = int(species_totals['Total per Sample'].iloc[0])  # Gesamtzahl der Fliegen für den Teilnehmer
+    species_data = {key: int(species_totals[key].iloc[0]) for key in species_totals.columns if key != 'sampleId' and key != 'Total per Sample'}
+
+    # HTML-Inhalt für das Popup erstellen
+    popup_content = f"""
+        <strong>Participant:</strong> {participant}<br>
+        <strong>Total Flies:</strong> {total_flies}<br>
+        <strong>melanogaster:</strong> {species_data['melanogaster']}<br>
+        <strong>simulans:</strong> {species_data['simulans']}<br>
+        <strong>suzukii:</strong> {species_data['suzukii']}<br>
+        <strong>busckii:</strong> {species_data['busckii']}<br>
+        <strong>testacea:</strong> {species_data['testacea']}<br>
+        <strong>hydei:</strong> {species_data['hydei']}<br>
+        <strong>mercatorum:</strong> {species_data['mercatorum']}<br>
+        <strong>repleta:</strong> {species_data['repleta']}<br>
+        <strong>funebris:</strong> {species_data['funebris']}<br>
+        <strong>immigrans:</strong> {species_data['immigrans']}<br>
+        <strong>phalerata:</strong> {species_data['phalerata']}<br>
+        <strong>subobscura:</strong> {species_data['subobscura']}<br>
+        <strong>virilis:</strong> {species_data['virilis']}<br>
+    """
+
+    # Popup mit Markdown für HTML-Inhalt zurückgeben
+    return dl.Popup(
+        children=[dcc.Markdown(popup_content, dangerously_allow_html=True)],
+        maxWidth='300px',  # Popup-Breite anpassen
+        maxHeight='400px',  # Popup-Höhe anpassen
+        closeButton=True,  # Schließen-Button hinzufügen
+        autoClose=True,  # Popup schließt automatisch bei Klick
+    )
+
 
 
 # Funktion zur Farbkodierung

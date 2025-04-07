@@ -11,9 +11,10 @@ from dash.dependencies import Input, Output, State
 from dash.html import Div, Figure
 from dash_leaflet import CircleMarker
 
+
 from files.data import df, species_list
 from files.layout import layout
-from files.util import get_color, get_species_color
+from files.util import get_color, get_species_color, make_popup
 
 # Initialize Dash app
 app = dash.Dash(__name__)
@@ -28,6 +29,7 @@ app.layout = layout()
      Output('map', 'zoom')],
     [Input('participant-dropdown', 'value')],
     [State('map', 'zoom')])  # Speichere den aktuellen Zoom-Wert
+
 def update_map(
         selected_participant: str,
         current_zoom: int) -> tuple[list[CircleMarker], list[Any], int | Any]:
@@ -39,21 +41,42 @@ def update_map(
     selected_marker = None
     all_markers = []
     for _, row in df.iterrows():
+        unique_id = str(uuid.uuid4())
         is_selected = selected_participant == row['participants']
         marker_radius = 10 if is_selected else 6
-        fill_color = "black" if is_selected else get_color(row['total_flies'])
+        border_color = '#000000' if is_selected else "#999"  # z.B. grau für nicht-ausgewählte
+        fill_color = "purple" if is_selected else get_color(row['total_flies'])
 
-        all_markers.append(
-            dl.CircleMarker(
-                center=[row['latitude'], row['longitude']],
-                radius=marker_radius,
-                color="black",  # Außenlinie bleibt schwarz
-                fillColor=fill_color,
-                fillOpacity=0.8 if is_selected else 0.5,
-                children=dl.Tooltip(
-                    f"{row['participants']} - {row['total_flies']} flies")
+        # Berechne die species_totals für den Teilnehmer, falls ausgewählt
+        if is_selected:
+            filtered_df = df[df['participants'] == row['participants']].copy()
+            species_totals = filtered_df[species_list].sum().to_frame().T
+            species_totals['sampleId'] = 'Total per Participant'
+            species_totals['Total per Sample'] = species_totals[species_list].sum(axis=1)
+
+            all_markers.append(
+                dl.CircleMarker(
+                    id=unique_id,
+                    center=[row['latitude'], row['longitude']],
+                    radius=marker_radius,
+                    color=border_color,
+                    fillColor=fill_color,
+                    fillOpacity=0.8 if is_selected else 0.2,
+                    children=make_popup(row['participants'], species_totals)  # Übergabe von species_totals
+                )
             )
-        )
+        else:
+            all_markers.append(
+                dl.CircleMarker(
+                    id=unique_id,
+                    center=[row['latitude'], row['longitude']],
+                    radius=marker_radius,
+                    color=border_color,
+                    fillColor=fill_color,
+                    fillOpacity=0.8 if is_selected else 0.2,
+                    children=dl.Tooltip(f"{row['participants']} - {row['total_flies']} flies")
+                )
+            )
 
     if selected_participant:
         filtered_df = df[df['participants'] == selected_participant].copy()
@@ -62,7 +85,6 @@ def update_map(
             participant_lon = filtered_df['longitude'].mean()
             participant_center = [participant_lat, participant_lon]
             return all_markers, participant_center, 13
-
 
     # Kein Participant ausgewählt → auf alle Punkte zoomen
     min_lat = df['latitude'].min()
@@ -76,6 +98,8 @@ def update_map(
     auto_zoom = 8 if max_lat - min_lat < 1.5 and max_lon - min_lon < 1.5 else 6
 
     return all_markers, map_center, auto_zoom
+
+
 @app.callback(
     Output('species-info', 'children'),
     Input('common-species-dropdown', 'value'))
