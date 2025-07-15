@@ -248,7 +248,8 @@ def update_time_series(selected_species: str) -> Figure:
     if selected_species:
         # Stelle sicher, dass die collectionEnd-Spalte
         # im DataFrame ein datetime-Objekt ist
-        df['collectionEnd'] = pd.to_datetime(df['collectionEnd'])
+        df_copy = df.copy()
+        df_copy['collectionEnd'] = pd.to_datetime(df_copy['collectionEnd'])
 
         # Nur Einträge mit Vorkommen der Spezies
         filtered_df = df[df[selected_species] > 0].copy()
