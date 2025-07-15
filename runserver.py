@@ -22,7 +22,16 @@ from files.util import get_color, get_species_color, make_popup
 app = dash.Dash(__name__)
 
 # Layout
-app.layout = layout()
+# Testen Sie die layout() Funktion direkt
+try:
+    test_layout = layout()
+    print("Layout erfolgreich erstellt!")
+    app.layout = layout()
+except Exception as e:
+    print(f"FEHLER in layout(): {e}")
+    print(f"FEHLER in layout(): {e}")
+    import traceback
+    traceback.print_exc()
 
 
 @app.callback(

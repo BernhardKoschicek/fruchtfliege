@@ -17,12 +17,12 @@ species_list = [
     'suzukii',
     'busckii',
     'testacea',
-                'hydei',
+    'hydei',
     'mercatorum',
     'repleta',
     'funebris',
     'immigrans',
-                'phalerata',
+    'phalerata',
     'subobscura',
     'virilis']
 df[species_list] = df[species_list].astype(int)

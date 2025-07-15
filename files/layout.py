@@ -10,13 +10,12 @@ from dash_leaflet import MapContainer
 from files.data import df, species_list
 from files.util import get_color, get_species_color, make_popup
 
+
 def get_logo() -> Img:
     logo = (
         "https://fairicube.wp2.nilu.no/wp-content/uploads/sites/21/2024/04/"
         "Logo-cityfly.png")
     return html.Img(src=logo, style={'width': '200px'})
-
-
 
 
 def get_participant_map_div() -> Div:
@@ -73,14 +72,14 @@ def get_participant_map_div() -> Div:
                     const resizeObserver = new ResizeObserver(entries => {
                         for (let entry of entries) {
                             if (entry.target === mapContainer) {
-                                const size = {width: 
-                                entry.contentRect.width, height: 
+                                const size = {width:
+                                entry.contentRect.width, height:
                                 entry.contentRect.height };
-                                // Hier könntest du das 'size'-Property des 
+                                // Hier könntest du das 'size'-Property des
                                 map-container-Divs direkt manipulieren,
                                 // um den Clientside-Callback auszulösen (
                                 Workaround).
-                                mapContainer.setAttribute('data-size', 
+                                mapContainer.setAttribute('data-size',
                                 JSON.stringify(size));
                                 // Oder du verwendest ein CustomEvent (
                                 sauberer):
@@ -150,7 +149,7 @@ def get_species_details() -> Div:
                 'border': '1px solid black',
                 'margin-top': '20px'},
             children=[
-                html.H3("Verbreitungskarte Arten", style={'padding': '10px'} ),
+                html.H3("Verbreitungskarte Arten", style={'padding': '10px'}),
                 dl.Map(
                     id="species-collection-map",
                     children=[
@@ -163,17 +162,142 @@ def get_species_details() -> Div:
                     style={"height": "600px", "width": "100%"})])])
 
 
+def get_footer() -> Div:
+    """Creates a footer with copyright information for Wikipedia, Leaflet and FAIRiCube."""
+    return html.Div(
+        style={
+            'marginTop': '40px',
+            'padding': '20px',
+            'backgroundColor': '#f8f9fa',
+            'borderTop': '1px solid #dee2e6',
+            'textAlign': 'center',
+            'fontSize': '12px',
+            'color': '#6c757d'
+        },
+        children=[
+            html.P([
+                "Map powered by ",
+                html.A(
+                    "Leaflet",
+                    href="https://leafletjs.com/",
+                    target="_blank",
+                    style={'color': '#007bff', 'textDecoration': 'none'}
+                ),
+                " | Map data © ",
+                html.A(
+                    "OpenStreetMap contributors",
+                    href="https://www.openstreetmap.org/copyright",
+                    target="_blank",
+                    style={'color': '#007bff', 'textDecoration': 'none'}
+                )
+            ], style={'margin': '5px 0'}),
+            html.P([
+                "Species information courtesy of ",
+                html.A(
+                    "Wikipedia",
+                    href="https://www.wikipedia.org/",
+                    target="_blank",
+                    style={'color': '#007bff', 'textDecoration': 'none'}
+                ),
+                " contributors under ",
+                html.A(
+                    "CC BY-SA license",
+                    href="https://creativecommons.org/licenses/by-sa/3.0/",
+                    target="_blank",
+                    style={'color': '#007bff', 'textDecoration': 'none'}
+                )
+            ], style={'margin': '5px 0'}),
+            html.P([
+                html.A(
+                    "Vienna City Fly 2024",
+                    href="https://freunde.nhm-wien.ac.at/neuigkeiten/item/299-vienna-city-fly-2024",
+                    target="_blank",
+                    style={'color': '#007bff', 'textDecoration': 'none'}
+                ),
+                " – Citizen Science Project | Part of the ",
+                html.A(
+                    "FAIRiCUBE Project",
+                    href="https://fairicube.nilu.no",
+                    target="_blank",
+                    style={'color': '#007bff', 'textDecoration': 'none'}
+                )
+            ], style={'margin': '10px 0', 'fontWeight': 'bold', 'color': '#495057'}),
+
+            # Logo als klickbarer Link
+            html.A(
+                href="https://fairicube.nilu.no",
+                target="_blank",
+                children=html.Img(
+                    src="https://fairicube.nilu.no/wp-content/uploads/sites/21/2022/09/fairicube_logo_200x149.jpg",
+                    style={
+                        'marginTop': '10px',
+                        'height': '50px',  # Optional: verkleinern
+                        'objectFit': 'contain'
+                    }
+                )
+            )
+        ]
+    )
+
+
 def layout() -> Div:
     return html.Div(
         className="container",
         children=[
-            get_logo(),
-            html.Div(children=[html.H1("Vienna City Fly 2025")]),
+            # Neuer Flexbox-Container für Logo und Kopfzeile
+
+            html.Div(
+                style={
+                    'display': 'flex',  # Aktiviert Flexbox
+                    'alignItems': 'center',  # Zentriert Elemente vertikal
+                    'marginBottom': '20px',  # Optional: Abstand nach unten
+                    'border': '2px solid red',  # Füge diesen Style hinzu!
+                    'padding': '10px',
+                },
+                children=[
+                    get_logo(),
+                    html.Div(
+                        style={
+                            'marginLeft': '20px',
+                            'border': '2px solid yellow',
+                            'flex': '1',  # Nimmt den verfügbaren Platz ein
+                            'display': 'flex',
+                            'flexDirection': 'column',
+                            'justifyContent': 'center',  # Vertikale Zentrierung
+                            'padding': '20px'  # Innenabstand
+                        },
+                        children=[
+                            html.H1(
+                                "Vienna City Fly 2025",
+                                style={
+                                    'margin': '0 0 15px 0',  # Nur unten Margin
+                                    'color': 'black',
+                                    'textAlign': 'center'  # Horizontale Zentrierung
+                                }
+                            ),
+                            html.P(
+                                "\"Vienna City Fly\" ist ein Citizen Science Project, in dem die Artenvielfalt der Fruchtfliegen in und um Wien studiert wird. Diese Webseite fasst die Sammelergebnisse des Jahres 2024 zusammen und zeigt die Häufigkeit der einzelnen Arten im erweiterten Stadtgebiet. Es können auch Detailansichten für die einzelnen Helfer*innen basierend auf der individuellen Sammlernummer angezeigt werden sowie für die nachgewiesenen Drosophila-Arten.",
+                                style={
+                                    'margin': '0',
+                                    'color': 'black',
+                                    'fontSize': '14px',  # Korrigiert von 'fontsize'
+                                    'textAlign': 'justify',  # Blocksatz für bessere Lesbarkeit
+                                    'lineHeight': '1.4'  # Besserer Zeilenabstand
+                                }
+                            )
+                        ]
+                    )
+                ]
+            ),
+            # Die restlichen Komponenten bleiben unverändert
             get_participant_map_div(),
             get_sample_table(),
             get_sample_pie_chart(),
-
-            get_species_details()])
+            get_species_details(),
+            # Footer hinzufügen
+            get_footer()
+        ]
+    )
 
 
 def participant_map() -> MapContainer:
@@ -241,8 +365,6 @@ def get_sample_table() -> Div:
     )
 
 
-
-
 def get_sample_pie_chart() -> html.Div:
     # Berechnung der Gesamtanzahl der Fliegen pro Art (wenn nicht schon in der Datenvorbereitung erledigt)
     species_counts = {species: df[species].sum() for species in species_list}
@@ -259,19 +381,19 @@ def get_sample_pie_chart() -> html.Div:
         values=values,
         marker=dict(colors=colors),  # Farben aus der bestehenden Farbliste
         hoverinfo='label+percent',  # Beim Hover anzeigen
-        textinfo='value', # Beschriftung mit Wert
+        textinfo='value',  # Beschriftung mit Wert
         showlegend=True,
     )])
     fig.update_layout(
         title="Artenverteilung VCF 2024",
         showlegend=True,
         legend=dict(x=1.05,  # Position der Legende rechts
-            y=1,
-            traceorder='normal',
-            orientation='v',  # Vertikale Legende
-            xanchor='left',
-            yanchor='top'
-        ),
+                    y=1,
+                    traceorder='normal',
+                    orientation='v',  # Vertikale Legende
+                    xanchor='left',
+                    yanchor='top'
+                    ),
         margin=dict(l=0, r=150, b=0, t=50)
     )
 
