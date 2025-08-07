@@ -1,5 +1,4 @@
 import uuid
-import io
 from typing import Any
 
 import dash
@@ -7,12 +6,10 @@ import dash_leaflet as dl
 import pandas as pd
 import plotly.graph_objects as go
 import requests
-from dash import html, dcc, State
+from dash import dcc, html
 from dash.dependencies import Input, Output, State
 from dash.html import Div, Figure
 from dash_leaflet import CircleMarker
-from dash.exceptions import PreventUpdate
-
 
 from files.data import df, species_list
 from files.layout import layout

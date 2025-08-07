@@ -1,8 +1,6 @@
 import numpy as np
+from dash import dcc
 import dash_leaflet as dl
-from dash import html, dcc
-import dash_leaflet as dl
-import dash_html_components as html
 import pandas as pd
 
 from files.data import df, max_flies, min_flies, species_list, species_rank
@@ -29,13 +27,13 @@ def get_color(value: str) -> str:
     return f"#{r:02X}{g:02X}{b:02X}"  # Convert to hex format
 
 
-
-
-
 def make_popup(participant: str, species_totals: pd.DataFrame) -> dl.Popup:
     # Extrahiere die Summe für den Teilnehmer
-    total_flies = int(species_totals['Total per Sample'].iloc[0])  # Gesamtzahl der Fliegen für den Teilnehmer
-    species_data = {key: int(species_totals[key].iloc[0]) for key in species_totals.columns if key != 'sampleId' and key != 'Total per Sample'}
+    total_flies = int(species_totals['Total per Sample'].iloc[
+                          0])  # Gesamtzahl der Fliegen für den Teilnehmer
+    species_data = {key: int(species_totals[key].iloc[0]) for key in
+                    species_totals.columns if
+                    key != 'sampleId' and key != 'Total per Sample'}
 
     # HTML-Inhalt für das Popup erstellen
     popup_content = f"""
@@ -64,7 +62,6 @@ def make_popup(participant: str, species_totals: pd.DataFrame) -> dl.Popup:
         closeButton=True,  # Schließen-Button hinzufügen
         autoClose=True,  # Popup schließt automatisch bei Klick
     )
-
 
 
 # Funktion zur Farbkodierung

@@ -1,14 +1,13 @@
 from typing import Any
 
-import pandas as pd
 import dash_leaflet as dl
 import plotly.graph_objects as go
-
 from dash import dash_table, dcc, html
 from dash.html import Div, Img
 from dash_leaflet import MapContainer
+
 from files.data import df, species_list
-from files.util import get_color, get_species_color, make_popup
+from files.util import get_species_color
 
 
 def get_logo() -> Img:
