@@ -27,4 +27,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: yourdockerhubusername/fruchtfliege:latest
+          tags: bkoschicek/fruchtfliege:latest
