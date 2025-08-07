@@ -17,6 +17,7 @@ from files.util import get_color, get_species_color, make_popup
 
 # Initialize Dash app
 app = dash.Dash(__name__)
+server = app.server
 
 # Layout
 # Testen Sie die layout() Funktion direkt
