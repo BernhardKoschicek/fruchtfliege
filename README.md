@@ -10,9 +10,9 @@ Key objectives include:
 
 - Collecting *D. melanogaster* samples in home kitchens.
 - Sequencing up to 100 fly populations.
-- Collaborating with FAIRiCUBE partners in Luxembourg to analyze genomic data alongside high‑resolution environmental and climate data ([Project Website](https://freunde.nhm-wien.ac.at/neuigkeiten/item/299-vienna-city-fly-2024)).
-- Investigating whether geographic barriers like the Danube or urban environmental stressors (e.g., heat islands, sealed surfaces) affect genetic diversity or indicate signatures of adaptation ([Project Website](https://freunde.nhm-wien.ac.at/neuigkeiten/item/299-vienna-city-fly-2024)).
-- Raising awareness and participation through aspects like Citizen Science Day, ECSA Conference, and the Long Night of Research ([Project Website](https://freunde.nhm-wien.ac.at/neuigkeiten/item/299-vienna-city-fly-2024)).
+- Collaborating with FAIRiCUBE partners in Luxembourg to analyze genomic data alongside high‑resolution environmental and climate data.
+- Investigating whether geographic barriers like the Danube or urban environmental stressors (e.g., heat islands, sealed surfaces) affect genetic diversity or indicate signatures of adaptation.
+- Raising awareness and participation through aspects like Citizen Science Day, ECSA Conference, and the Long Night of Research.
 
 ## Table of Contents
 
