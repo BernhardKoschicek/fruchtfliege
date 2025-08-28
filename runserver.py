@@ -29,6 +29,7 @@ except Exception as e:
     print(f"FEHLER in layout(): {e}")
     print(f"FEHLER in layout(): {e}")
     import traceback
+
     traceback.print_exc()
 
 
@@ -38,7 +39,6 @@ except Exception as e:
      Output('map', 'zoom')],
     [Input('participant-dropdown', 'value')],
     [State('map', 'zoom')])  # Speichere den aktuellen Zoom-Wert
-
 def update_map(
         selected_participant: str,
         current_zoom: int) -> tuple[list[CircleMarker], list[Any], int | Any]:
@@ -53,7 +53,8 @@ def update_map(
         unique_id = str(uuid.uuid4())
         is_selected = selected_participant == row['participants']
         marker_radius = 10 if is_selected else 6
-        border_color = '#000000' if is_selected else "#999"  # z.B. grau für nicht-ausgewählte
+        border_color = '#000000' if is_selected else "#999"  # z.B. grau für
+        # nicht-ausgewählte
         fill_color = "purple" if is_selected else get_color(row['total_flies'])
 
         # Berechne die species_totals für den Teilnehmer, falls ausgewählt
@@ -61,7 +62,8 @@ def update_map(
             filtered_df = df[df['participants'] == row['participants']].copy()
             species_totals = filtered_df[species_list].sum().to_frame().T
             species_totals['sampleId'] = 'Total per Participant'
-            species_totals['Total per Sample'] = species_totals[species_list].sum(axis=1)
+            species_totals['Total per Sample'] = species_totals[
+                species_list].sum(axis=1)
 
             all_markers.append(
                 dl.CircleMarker(
@@ -71,7 +73,8 @@ def update_map(
                     color=border_color,
                     fillColor=fill_color,
                     fillOpacity=0.8 if is_selected else 0.2,
-                    children=make_popup(row['participants'], species_totals)  # Übergabe von species_totals
+                    children=make_popup(row['participants'], species_totals)
+                    # Übergabe von species_totals
                 )
             )
         else:
@@ -83,7 +86,8 @@ def update_map(
                     color=border_color,
                     fillColor=fill_color,
                     fillOpacity=0.8 if is_selected else 0.2,
-                    children=dl.Tooltip(f"{row['participants']} - {row['total_flies']} flies")
+                    children=dl.Tooltip(
+                        f"{row['participants']} - {row['total_flies']} flies")
                 )
             )
 
@@ -116,19 +120,28 @@ def update_species_info(species: str) -> Div:
     url = ("https://en.wikipedia.org/api/rest_v1/page/summary/drosophila_"
            f"{species}")
     try:
-        response = requests.get(url, timeout=60)
+        response = requests.get(
+            url,
+            headers={
+                "User-Agent":
+                    "Fruchtfliegen ("
+                    "https://github.com/BernhardKoschicek/fruchtfliege)"},
+            timeout=60)
         if response.status_code == 200:
             data = response.json()
             return html.Div([
-                html.H3(data.get('title', 'No Title'), style={'padding': '10px'}),
+                html.H3(data.get('title', 'No Title'),
+                        style={'padding': '10px'}),
                 html.Img(
                     src=data.get('thumbnail', {}).get('source', ''),
                     style={'max-width': '100%', 'padding': '10px'}),
                 html.P(
-                    html.I(data.get('extract', 'No information available'), style={'paddingLeft': '10px'}))])
+                    html.I(data.get('extract', 'No information available'),
+                           style={'paddingLeft': '10px'}))])
     except Exception as e:
         return html.Div(f"Error fetching data: {str(e)}")
     return html.Div("No data available.")
+
 
 # Callback für den Download
 
@@ -137,7 +150,8 @@ def update_species_info(species: str) -> Div:
     Output("download-data", "data"),
     Input("download-button", "n_clicks"),
     State("download-option", "value"),
-    State("participant-dropdown", "value"),  # Annahme: dieser Wert ist per dcc.Store o. Ä. gespeichert
+    State("participant-dropdown", "value"),
+    # Annahme: dieser Wert ist per dcc.Store o. Ä. gespeichert
     prevent_initial_call=True
 )
 def download_table(n_clicks, download_option, selected_participant):
@@ -146,7 +160,8 @@ def download_table(n_clicks, download_option, selected_participant):
         filename = f"{selected_participant}-species_data.csv"
     else:
         columns_to_exclude = ['latitude', 'longitude', 'bait']
-        columns_to_include = [col for col in df.columns if col not in columns_to_exclude]
+        columns_to_include = [col for col in df.columns if
+                              col not in columns_to_exclude]
         df_to_download = df[columns_to_include]
         filename = "all_species_data.csv"
 
@@ -215,8 +230,10 @@ def update_participant_pie_chart(selected_participant: str) -> Figure:
         colors = [get_species_color(species) for species in labels]
         showlegend = False
         fig = go.Figure(data=[
-            go.Pie(labels=labels, values=values, marker=dict(colors=colors), showlegend = False)])
-        fig.update_layout(title=f"Artenverteilung Teilnehmer { selected_participant}")
+            go.Pie(labels=labels, values=values, marker=dict(colors=colors),
+                   showlegend=False)])
+        fig.update_layout(
+            title=f"Artenverteilung Teilnehmer {selected_participant}")
         return fig
     return go.Figure()
 
@@ -233,7 +250,8 @@ def update_sample_pie_chart(selected_sample: str) -> Figure:
         values = filtered_data.values
         colors = [get_species_color(species) for species in labels]
         fig = go.Figure(data=[
-            go.Pie(labels=labels, values=values, marker=dict(colors=colors), showlegend = False)])
+            go.Pie(labels=labels, values=values, marker=dict(colors=colors),
+                   showlegend=False)])
         fig.update_layout(title=f"Artenverteilung Falle {selected_sample}")
         return fig
     return go.Figure()
@@ -289,8 +307,6 @@ def update_species_map(selected_species: str) -> tuple[list[Any], list[Any]]:
                     fillColor=get_species_color(selected_species),
                     fillOpacity=0.6,
                     children=dl.Tooltip(f"{selected_species}")))
-
-
 
             # Berechne die Bounds der Marker
             lats = filtered_df['latitude'].tolist()
