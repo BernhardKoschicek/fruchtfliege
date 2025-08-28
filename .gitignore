@@ -174,3 +174,5 @@ cython_debug/
 *.xml
 misc.xml
 fruchtfliege.iml
+
+.idea
